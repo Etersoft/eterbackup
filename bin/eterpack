@@ -60,7 +60,7 @@ done
 list_files()
 {
 	# Список файлов:
-	find $BACKUPDIR -maxdepth 1 -type f -printf "%P\n"
+	find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth 1 -type f -printf "%P\n"
 }
 
 update_dump()
@@ -162,20 +162,17 @@ while read relfile ; do
 	reldir="$(dirname "$relfile")"
 	# FIXME: copy dir permissions
 	# TODO: хранить структуру каталогов отдельно, сразу и проверка?
-	# TODO: не создавать предварительно каталог. Он уже есть внутри архива
-	mkdir -p "$DESTDIR/$reldir" || exit
 
 	# workaround for root archive
 	if [ "$reldir" = "." ] ; then
-		cd "$DESTDIR/"
+		tdir="$DESTDIR"
 	else
-		cd "$DESTDIR/$reldir/../"
+		tdir="$(realpath -m "$DESTDIR/$reldir/..")"
 	fi
 
 	echo
-	echo "Extract files from $relfile to $DESTDIR/$reldir ..."
-	zpaq extract "$DUMPDIR/$relfile"
-	cd - >/dev/null
+	echo "Extract files from $relfile to $tdir ..."
+	zpaq extract "$DUMPDIR/$relfile" -to "$tdir" || return
 done
 }
 
