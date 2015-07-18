@@ -27,3 +27,11 @@ create_tree()
 
 	create_files $TESTDIR
 }
+
+change_tree()
+{
+	find $1 -type f | while read tf ; do
+		echo "Resizing $tf"
+		dd if=/dev/urandom count=50 2>/dev/null >>$tf || fatal "Can't append $tf"
+	done
+}
