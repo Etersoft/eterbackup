@@ -1,0 +1,220 @@
+#!/bin/sh
+# Copyright (C) 2015  Etersoft
+# Copyright (C) 2015  Vitaly Lipatov <lav@etersoft.ru>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
+DESCR="etertimemachine version 0.1 (c) Etersoft 2015"
+
+# last
+# -1, -2, -3
+# date
+# date time
+# записывать выбранный способ
+
+LAST="last"
+NUMPREFIX=e
+
+print_message()
+{
+	local DESC="$1"
+	shift
+	echo "$DESC in $(basename $0): $@"
+}
+
+# Print error message and stop the program
+fatal()
+{
+	print_message Error "$@" >&2
+	exit 1
+}
+
+assert_var()
+{
+	local i re
+
+	for i in $@ ; do
+		re=$(eval echo \$$i)
+		[ -n "$re" ] || fatal "assert: $i is not exists"
+	done
+}
+
+
+##
+
+
+set_status()
+{
+	mkdir -p "$ROTATEDIR"
+	if [ -z "$1" ] ; then
+		rm "$ROTATEDIR/status" 2>/dev/null
+		return
+	fi
+	echo "$1" >"$ROTATEDIR/status" || fatal "Can't set status"
+}
+
+get_status()
+{
+	[ -s "$ROTATEDIR/status" ] || return 0
+	cat "$ROTATEDIR/status" || fatal "Can't read status"
+}
+
+next_number()
+{
+	assert_var ROTATEDIR
+	local OLDNUM=$(ls -d -v -1 $ROTATEDIR/$NUMPREFIX* | tail -n1)
+	OLDNUM=$(basename "$OLDNUM" | sed -e "s|$NUMPREFIX||g")
+
+	if [ -z "$OLDNUM" ] || [ "$OLDNUM" = "0" ] ; then
+		echo "${NUMPREFIX}1"
+	else
+		local NUM=$(($OLDNUM + 1))
+		[ "$NUM" = "1" ] && fatal "Can't detect number"
+		echo "$NUMPREFIX$NUM"
+	fi
+}
+
+get_mark()
+{
+	case "$1" in
+		date)
+			date --rfc-3339=date
+			;;
+		datetime|ns)
+			date --rfc-3339=ns
+			;;
+		number)
+			next_number
+			;;
+		*)
+			fatal "Unknown method $METHOD"
+	esac
+}
+
+rotate_dir()
+{
+	# TODO: what about continue rotate process?
+	[ -n "$(get_status)" ] && fatal "$0 already in $(get_status) process..."
+
+	set_status "rotate"
+	MARK=$(get_mark $METHOD)
+	[ -n "$MARK" ] || fatal "Can't get dir name for rotating"
+
+	# for first time just create target
+	if [ ! -d "$ROTATEDIR/$LAST" ] ; then
+		mkdir -p "$ROTATEDIR/$LAST" || fatal "Can't create $ROTATEDIR/$LAST"
+		return
+	fi
+
+	# real rotate
+	[ -d "$ROTATEDIR/$MARK.tmp" ] && fatal "$ROTATEDIR/$MARK.tmp already exists"
+
+	# if $MARK already exists, we run too often
+	if [ -d "$ROTATEDIR/$MARK" ] ; then
+		if [ -n "$FORCE" ] ; then
+			echo "Skip unneeded rotating to $MARK due --force..."
+			return
+		fi
+
+		fatal "$ROTATEDIR/$MARK already exists. You run rotate too aften"
+	fi
+
+	echo "Rotating $ROTATEDIR/$LAST..."
+	cp -al "$ROTATEDIR/$LAST" "$ROTATEDIR/$MARK.tmp" || fatal "Can't copy with hard links to $ROTATEDIR/$MARK.tmp"
+
+	mv "$ROTATEDIR/$LAST" "$ROTATEDIR/$MARK" || fatal "Can't mv to $ROTATEDIR/$MARK"
+	mv "$ROTATEDIR/$MARK.tmp" "$ROTATEDIR/$LAST" || fatal "Can't mv to $ROTATEDIR/$LAST"
+	# here we have $MARK and $LAST dir with the same contents
+	set_status ""
+	echo "Done."
+}
+
+update_dir()
+{
+	local STATUS=$(get_status)
+	[ -n "$STATUS" ] && [ "$STATUS" != "sync" ] && fatal "$0 already in $STATUS process..."
+
+	if [ -z "$STATUS" ] ; then
+		rotate_dir || fatal "Can't rotate before sync"
+	fi
+
+	set_status "sync"
+	if [ -d "$ROTATEDIR/$LAST" ] ; then
+		echo "Syncing $BACKUPDIR to $ROTATEDIR/$LAST..."
+		rsync -av --partial --progress --delete-after "$BACKUPDIR/" "$ROTATEDIR/$LAST/" || fatal "Can't sync. Try again this command."
+	else
+		echo "Copying for first time..."
+		cp -a "$BACKUPDIR/" "$ROTATEDIR/$LAST/" || fatal "Can't copy. Try again this command."
+	fi
+	set_status ""
+	echo "Done."
+}
+
+
+
+COMMAND=$1
+shift
+
+METHOD="date"
+if [ "$1" = "--method" ] ; then
+	shift
+	METHOD=$1
+	get_mark $METHOD >/dev/null
+	shift
+fi
+
+FORCE=
+if [ "$1" = "--force" ] ; then
+	shift
+	FORCE=1
+fi
+
+case $COMMAND in
+	update)
+		# from
+		BACKUPDIR=$(realpath -e "$1") || exit
+
+		# to
+		ROTATEDIR=$(realpath -m "$2")
+		update_dir
+	;;
+	rotate)
+		ROTATEDIR=$(realpath -e "$1") || exit
+		rotate_dir
+	;;
+	-h|--help)
+		echo $DESCR
+		echo "Run with $0 command [options] args"
+
+		echo
+		echo "Update:"
+		echo "	$ etertimemachine update /path/from /path/to"
+
+		echo
+		echo "Rotate:"
+		echo "	$ etertimemachine rotate /path/to"
+
+		echo
+		echo "Options:"
+		echo "	--method date|datetime|number   name convention for rotate dirs (date by default)"
+		echo "	--force                         sync target ever if we do not rotate this time"
+	;;
+	*)
+		echo "$DESCR" >&2
+		echo "Run with -h or --help for help" >&2
+		exit 1
+	;;
+esac
+
