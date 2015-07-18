@@ -1,0 +1,214 @@
+#!/bin/sh
+# Copyright (C) 2015  Etersoft
+# Copyright (C) 2015  Vitaly Lipatov <lav@etersoft.ru>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
+# template for continous
+STZ="000"
+STN="???"
+
+DESCR="eterbackup version 0.1 (c) Etersoft 2015"
+
+print_message()
+{
+	local DESC="$1"
+	shift
+	echo "$DESC in $(basename $0): $@"
+}
+
+# Print error message and stop the program
+fatal()
+{
+	print_message Error "$@" >&2
+	exit 1
+}
+
+
+list_dirs()
+{
+#echo "List dirs from $BACKUPDIR, with $EXCLUDEDIR exclude."
+# Получаем список каталогов, которые мы хотим превратить в файлы
+find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth $DEPTH -type d | \
+while read subdir ; do
+	# TODO: не забыть файлы в основном каталоге
+	# TODO: неизвестно, как сделать нерекурсивным
+
+	# /var/log/long/something -> long/something
+	reldir="${subdir/$BACKUPDIR\//}"
+	bdir=$(basename "$reldir")
+
+	# TODO: improve
+	if [ "$bdir" = "$EXCLUDEDIR" ] ; then
+		echo "Skip excluded $bdir"
+		continue
+	fi
+	echo "$reldir"
+done
+}
+
+update_dump()
+{
+# Получаем список каталогов, которые мы хотим превратить в файлы
+find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth $DEPTH -type d | \
+while read subdir ; do
+	# TODO: не забыть файлы в основном каталоге
+	# TODO: неизвестно, как сделать нерекурсивным
+
+	# /var/log/long/something -> long/something
+	reldir="${subdir/$BACKUPDIR\//}"
+	bdir="$(basename "$reldir")"
+
+	# TODO: improve
+	if [ "$bdir" = "$EXCLUDEDIR" ] ; then
+		echo "Skip excluded $bdir"
+		continue
+	fi
+
+	# TODO: удалённые каталоги будут незамечены и останутся.
+	# Создавать новый слой, копируя со старого, и оставляя тот старыми датами?
+
+	# FIXME: copy dir permissions
+	mkdir -p "$DUMPDIR/$reldir"
+
+	# workaround for correct internal path
+	cd "$BACKUPDIR/$reldir/.." || exit
+	# packing
+	echo
+	echo "Packing $bdir..."
+	zpaq a "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir"
+	cd - >/dev/null
+done
+}
+
+repack_dump()
+{
+fatal "Do not realized jet!"
+# Получаем список каталогов, которые мы хотим превратить в файлы
+find "$BACKUPDIR" -depth -maxdepth $DEPTH -mindepth $DEPTH -type d | \
+while read subdir ; do
+	# TODO: не забыть файлы в основном каталоге
+	# TODO: неизвестно, как сделать нерекурсивным
+
+	# /var/log/long/something -> long/something
+	reldir="${subdir/$BACKUPDIR\//}"
+	bdir="$(basename "$reldir")"
+
+	# TODO: improve
+	if [ "$bdir" = "$EXCLUDEDIR" ] ; then
+		echo
+		echo "Skip excluded $bdir"
+		continue
+	fi
+
+	# TODO: удалённые каталоги будут незамечены и останутся.
+	# Создавать новый слой, копируя со старого, и оставляя тот старыми датами?
+
+	# FIXME: copy dir permissions
+	mkdir -p "$DUMPDIR/$reldir"
+
+	# TODO: тут нужно сделать другой обход каталогов (готовых)
+	# TODO: выделить в отдельную функцию
+	# TODO: check it
+	zpaq purge "$DUMPDIR/$reldir/$bdir.$STN.zpaq" -to "$DUMPDIR/$reldir/../$bdir.$STZ.zpaq" || exit
+	rm -f "$DUMPDIR/$reldir/$bdir.$STN.zpaq"
+	mv "$DUMPDIR/$reldir/../$bdir.$STZ.zpaq" "$DUMPDIR/$reldir/$bdir.$STZ.zpaq"
+done
+}
+
+extract_dump()
+{
+# CHECKME: always exists 000?
+find "$DUMPDIR" -type f -name "*.$STZ.zpaq" | \
+while read paqfile ; do
+	relfile="${paqfile/$DUMPDIR\//}"
+	reldir="$(dirname "$relfile")"
+	# FIXME: copy dir permissions
+	# TODO: хранить структуру каталогов отдельно, сразу и проверка?
+	mkdir -p "$DESTDIR/$reldir" || exit
+	cd "$DESTDIR/$reldir/.."
+	zpaq extract "${paqfile/.$STZ.zpaq/.$STN.zpaq}"
+	cd - >/dev/null
+done
+}
+
+COMMAND=$1
+shift
+
+DEPTH=1
+if [ "$1" = "-depth" ] || [ "$1" = "--depth" ] ; then
+	shift
+	DEPTH=$1
+	shift
+fi
+
+EXCLUDEDIR=
+if [ "$1" = "--exclude" ] ; then
+	shift
+	EXCLUDEDIR="$1"
+	shift
+fi
+
+case $COMMAND in
+	update)
+		# from
+		BACKUPDIR="$(realpath -e "$1")" || exit
+
+		# to
+		DUMPDIR="$(realpath -m "$2")"
+		update_dump
+	;;
+	repack)
+		# from
+		BACKUPDIR="$(realpath -e "$1")" || exit
+
+		# to
+		DUMPDIR="$(realpath -m "$2")"
+		repack_dump
+	;;
+	list)
+		# from
+		BACKUPDIR="$(realpath -e "$1")" || exit
+		list_dirs
+	;;
+	extract)
+		DUMPDIR="$(realpath -e "$1")" || exit
+		DESTDIR=
+		[ -n "$2" ] && DESTDIR="$(realpath -m "$2")/$(basename $DUMPDIR)"
+		extract_dump
+	;;
+	-h|--help)
+		echo $DESCR
+		echo "Run with $0 command [options] args"
+
+		echo
+		echo "Update backup:"
+		echo "	$ eterbackup update /path/from /path/to"
+
+		echo
+		echo "Repack backup (refresh zpaq files for minimize):"
+		echo "	$ eterbackup repack /path/from /path/to"
+
+		echo
+		echo "Extract backup:"
+		echo "	$ eterbackup extract /path/backup /path/to"
+	;;
+	*)
+		echo "$DESCR" >&2
+		echo "Run with -h or --help for help" >&2
+		exit 1
+	;;
+esac
+
