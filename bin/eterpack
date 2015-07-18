@@ -93,7 +93,7 @@ while read subdir ; do
 	cd "$BACKUPDIR/$reldir/.." || exit
 	# packing
 	echo
-	echo "Packing $bdir..."
+	echo "Packing $reldir/$bdir..."
 	zpaq a "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir"
 	cd - >/dev/null
 
@@ -173,7 +173,13 @@ while read paqfile ; do
 	# FIXME: copy dir permissions
 	# TODO: хранить структуру каталогов отдельно, сразу и проверка?
 	mkdir -p "$DESTDIR/$reldir" || exit
-	[ "$reldir" = "." ] && cd "$DESTDIR/" || cd "$DESTDIR/$reldir/.."
+
+	if [ "$reldir" = "." ] ; then
+		cd "$DESTDIR/"
+	else
+		cd "$DESTDIR/$reldir/../"
+	fi
+
 	echo
 	echo "Extract files from $relfile to $DESTDIR/$reldir ..."
 	# TODO: run with 000?
@@ -257,6 +263,8 @@ case $COMMAND in
 
 		echo
 		echo "Options:"
+		echo "	--depth N          - set depth for subdirs (update only)"
+		echo "	--exclude name     - exclude dir 'name' from packing"
 		echo "	--execute command  - execute 'command' after every archive"
 	;;
 	*)
