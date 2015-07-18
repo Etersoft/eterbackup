@@ -16,10 +16,10 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-# template for continous
-STZ="000"
-ST1="001"
-STN="???"
+# templates for multi part archive names
+STZ="000000"
+ST1="000001"
+STN="??????"
 
 DESCR="eterbackup version 0.1 (c) Etersoft 2015"
 
