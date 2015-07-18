@@ -88,13 +88,13 @@ while read reldir ; do
 
 	echo
 	echo "Packing $reldir/$bdir..."
-	zpaq a "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir"
+	zpaq a "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir" || { cd - ; exit 1 ; }
 	cd - >/dev/null
 
 	if [ -n "$EXECUTEAFTER" ] ; then
 		$EXECUTEAFTER "$DUMPDIR/$reldir/$bdir.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
 	fi
-done
+done || return
 
 # Получаем список файлов в корне
 # TODO: Здесь бы надо просто выключить рекурсию, но неизвестно как
@@ -112,7 +112,7 @@ if [ -n "$FILES" ] ; then
 	cd "$BACKUPDIR" || exit
 
 	# packing
-	zpaq a "$DUMPDIR/$bdir.$STN.zpaq" $FILES
+	zpaq a "$DUMPDIR/$bdir.$STN.zpaq" $FILES || { cd - ; return 1 ; }
 	cd - >/dev/null
 
 	if [ -n "$EXECUTEAFTER" ] ; then
@@ -172,7 +172,7 @@ while read relfile ; do
 
 	echo
 	echo "Extract files from $relfile to $tdir ..."
-	zpaq extract "$DUMPDIR/$relfile" -to "$tdir" || return
+	zpaq extract "$DUMPDIR/$relfile" -to "$tdir" || exit
 done
 }
 
@@ -186,7 +186,7 @@ compare_dump()
 
 		echo
 		echo "Compare files from $relfile with $DESTDIR/$reldir ..."
-		zpaq list "$DUMPDIR/$relfile" "$reldir" -to "$DESTDIR/$reldir" -not = || return
+		zpaq list "$DUMPDIR/$relfile" "$reldir" -to "$DESTDIR/$reldir" -not = || exit
 	done
 }
 
@@ -221,7 +221,7 @@ case $COMMAND in
 
 		# to
 		DUMPDIR="$(realpath -m "$2")"
-		update_dump
+		update_dump || exit
 		# TODO: это второй прогон. Надо встроить внутрь. Но там будет дописывание в файл
 		list_dirs >$DUMPDIR/dirs.list
 		list_files >$DUMPDIR/files.list
