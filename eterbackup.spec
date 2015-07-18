@@ -1,5 +1,5 @@
 Name: eterbackup
-Version: 0.2
+Version: 0.3
 Release: alt1
 
 Summary: Etersoft backup tools for journaling backup
@@ -46,5 +46,11 @@ See detailed russian description here: http://wiki.etersoft.ru/Eterbackup
 #%_sysconfdir/bash_completion.d/erc
 
 %changelog
+* Sun Jul 19 2015 Vitaly Lipatov <lav@altlinux.ru> 0.3-alt1
+- eterpack: add --execute option
+- eterpack: backup root files too
+- eterpack: fix DESTDIR heuristic
+- eterpack: write dirs.list and files.list
+
 * Sat Jul 18 2015 Vitaly Lipatov <lav@altlinux.ru> 0.2-alt1
 - initial build for ALT Linux Sisyphus

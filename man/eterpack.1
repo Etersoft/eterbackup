@@ -5,13 +5,13 @@
 .\" This file has been put into the public domain.
 .\" You can do whatever you want with this file.
 .\"
-.TH ETERBACKUP "August 2015" "Version 0.2"
+.TH ETERBACKUP "August 2015" "Version 0.3"
 
 .SH NAME
 eterpack \- packing directory tree to one archive file with journaling archiver zpaq.
 .SH SYNOPSIS
 .B eterpack
-.RI [command] [options] path, [path...]
+.RI [command] [options] [path,] [path...]
 .PP
 .br
 .SH DESCRIPTION
@@ -27,9 +27,20 @@ Display help
 .TP
 .I -V
 Show version and exit
+.TP
+.I --depth N
+set depth for subdirs (update only)
+.TP
+.I --exclude name
+exclude dir 'name' from packing
+.TP
+.I --execute command
+execute 'command' after every archive
+
 .SH EXAMPLES
  # eterpack update /var/log/ /tmp/backup
  # eterpack extract /tmp/backup /tmp/someplace
+ # eterpack update --execute "echo" /var/log/ /tmp/backup
 
 .SH BUGS
 Please report any bugs to lav@etersoft.ru
