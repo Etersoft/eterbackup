@@ -227,8 +227,9 @@ case $COMMAND in
 	;;
 	extract)
 		DUMPDIR="$(realpath -e "$1")" || exit
-		DESTDIR=
-		[ -n "$2" ] && DESTDIR="$(realpath -m "$2")/$(basename $DUMPDIR)"
+		# source dirname for target by default
+		DESTDIR="$(basename $DUMPDIR)"
+		[ -n "$2" ] && DESTDIR="$(realpath -m "$2")"
 		extract_dump
 	;;
 	-h|--help)
