@@ -220,6 +220,9 @@ case $COMMAND in
 		# to
 		DUMPDIR="$(realpath -m "$2")"
 		update_dump
+		# TODO: это второй прогон. Надо встроить внутрь. Но там будет дописывание в файл
+		list_dirs >$DUMPDIR/dirs.list
+		list_files >$DUMPDIR/files.list
 	;;
 	repack)
 		# from
