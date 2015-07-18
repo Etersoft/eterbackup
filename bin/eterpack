@@ -179,6 +179,20 @@ while read relfile ; do
 done
 }
 
+compare_dump()
+{
+	[ -d "$DESTDIR" ] || fatal "Can't open directory $DESTDIR"
+	# Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
+	find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
+	while read relfile ; do
+		reldir="$(dirname "$relfile")"
+
+		echo
+		echo "Compare files from $relfile with $DESTDIR/$reldir ..."
+		zpaq list "$DUMPDIR/$relfile" "$reldir" -to "$DESTDIR/$reldir" -not = || return
+	done
+}
+
 COMMAND=$1
 shift
 
@@ -222,6 +236,12 @@ case $COMMAND in
 		# to
 		DUMPDIR="$(realpath -m "$2")"
 		repack_dump
+	;;
+	compare)
+		DUMPDIR="$(realpath -e "$1")"
+
+		DESTDIR="$(realpath -e "$1")"
+		compare_dump
 	;;
 	list)
 		# from
