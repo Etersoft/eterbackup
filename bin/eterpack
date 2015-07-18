@@ -88,7 +88,7 @@ while read reldir ; do
 
 	echo
 	echo "Packing $reldir/$bdir..."
-	zpaq a "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir" || { cd - ; exit 1 ; }
+	zpaq a "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir" $CHECKSUM || { cd - ; exit 1 ; }
 	cd - >/dev/null
 
 	if [ -n "$EXECUTEAFTER" ] ; then
@@ -112,7 +112,7 @@ if [ -n "$FILES" ] ; then
 	cd "$BACKUPDIR" || exit
 
 	# packing
-	zpaq a "$DUMPDIR/$bdir.$STN.zpaq" $FILES || { cd - ; return 1 ; }
+	zpaq a "$DUMPDIR/$bdir.$STN.zpaq" $FILES $CHECKSUM || { cd - ; return 1 ; }
 	cd - >/dev/null
 
 	if [ -n "$EXECUTEAFTER" ] ; then
@@ -186,7 +186,7 @@ compare_dump()
 
 		echo
 		echo "Compare files from $relfile with $DESTDIR/$reldir ..."
-		zpaq list "$DUMPDIR/$relfile" "$reldir" -to "$DESTDIR/$reldir" -not = || exit
+		zpaq list "$DUMPDIR/$relfile" "$reldir" -to "$DESTDIR/$reldir" -not = $CHECKSUM || exit
 	done
 }
 
@@ -212,6 +212,12 @@ if [ "$1" = "--execute" ] ; then
 	shift
 	EXECUTEAFTER="$1"
 	shift
+fi
+
+CHECKSUM=
+if [ "$1" = "--checksum" ] ; then
+	shift
+	CHECKSUM="-force"
 fi
 
 case $COMMAND in
@@ -277,6 +283,7 @@ case $COMMAND in
 		echo "	--depth N          - set depth for subdirs (update only)"
 		echo "	--exclude name     - exclude dir 'name' from packing"
 		echo "	--execute command  - execute 'command' after every archive"
+		echo "	--checksum         - force checking file contains, not date only"
 	;;
 	*)
 		echo "$DESCR" >&2
