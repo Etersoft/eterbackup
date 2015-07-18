@@ -1,0 +1,43 @@
+'\" t
+.\"
+.\" Author: Vitaly Lipatov
+.\"
+.\" This file has been put into the public domain.
+.\" You can do whatever you want with this file.
+.\"
+.TH ETERBACKUP "August 2015" "Version 0.2"
+
+.SH NAME
+eterpack \- packing directory tree to one archive file with journaling archiver zpaq.
+.SH SYNOPSIS
+.B eterpack
+.RI [command] [options] path, [path...]
+.PP
+.br
+.SH DESCRIPTION
+.BI
+eterpack update scan every directory in the directory and create a archive file in target directory.
+The goal is reduce the number of files from many thousands to a few.
+Using journaling archiver zpaq we generate multi file archive (a file per every backup session).
+
+.SH OPTIONS
+.TP
+.I -h
+Display help
+.TP
+.I -V
+Show version and exit
+.SH EXAMPLES
+ # eterpack update /var/log/ /tmp/backup
+ # eterpack extract /tmp/backup /tmp/someplace
+
+.SH BUGS
+Please report any bugs to lav@etersoft.ru
+.SH EXIT STATUS
+.B eterpack
+will return zero on success and non zero on operation failure.
+.SH SEE ALSO
+.BR erc (1), etertimemachine (1), zpaq (1)
+.TP
+.B http://wiki.etersoft.ru/Eterbackup
+ETERBACKUP wiki page
