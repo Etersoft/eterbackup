@@ -57,10 +57,12 @@ while read subdir ; do
 	fi
 	echo "$reldir"
 done
+}
 
-# Список файлов:
-find $BACKUPDIR -maxdepth 1 -type f | sed -e "s|$BACKUPDIR/||g"
-
+list_files()
+{
+	# Список файлов:
+	find $BACKUPDIR -maxdepth 1 -type f | sed -e "s|$BACKUPDIR/||g"
 }
 
 update_dump()
@@ -103,7 +105,8 @@ done
 # Получаем список файлов в корне
 # TODO: Здесь бы надо просто выключить рекурсию, но неизвестно как
 # Также неизвестно, как раскрыть
-local FILES=$(find $BACKUPDIR -maxdepth 1 -type f | sed -e "s|$BACKUPDIR/||g")
+# FIXME: broken with paths with spaces
+local FILES=$(list_files)
 if [ -n "$FILES" ] ; then
 
 	bdir="$(basename "$BACKUPDIR")"
@@ -223,7 +226,11 @@ case $COMMAND in
 	list)
 		# from
 		BACKUPDIR="$(realpath -e "$1")" || exit
+		echo "Dirs:"
 		list_dirs
+		echo
+		echo "Files:"
+		list_files
 	;;
 	extract)
 		DUMPDIR="$(realpath -e "$1")" || exit
