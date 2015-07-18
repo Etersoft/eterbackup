@@ -42,13 +42,9 @@ list_dirs()
 {
 #echo "List dirs from $BACKUPDIR, with $EXCLUDEDIR exclude."
 # Получаем список каталогов, которые мы хотим превратить в файлы
-find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth $DEPTH -type d | \
-while read subdir ; do
-	# TODO: не забыть файлы в основном каталоге
-	# TODO: неизвестно, как сделать нерекурсивным
+find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth $DEPTH -type d -printf "%P\n" | \
+while read reldir ; do
 
-	# /var/log/long/something -> long/something
-	reldir="${subdir/$BACKUPDIR\//}"
 	bdir=$(basename "$reldir")
 
 	# TODO: improve
@@ -56,6 +52,7 @@ while read subdir ; do
 		echo "Skip excluded $bdir"
 		continue
 	fi
+
 	echo "$reldir"
 done
 }
@@ -63,19 +60,15 @@ done
 list_files()
 {
 	# Список файлов:
-	find $BACKUPDIR -maxdepth 1 -type f | sed -e "s|$BACKUPDIR/||g"
+	find $BACKUPDIR -maxdepth 1 -type f -printf "%P\n"
 }
 
 update_dump()
 {
 # Получаем список каталогов, которые мы хотим превратить в файлы
-find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth $DEPTH -type d | \
-while read subdir ; do
-	# TODO: не забыть файлы в основном каталоге
-	# TODO: неизвестно, как сделать нерекурсивным
+find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth $DEPTH -type d -printf "%P\n" | \
+while read reldir ; do
 
-	# /var/log/long/something -> long/something
-	reldir="${subdir/$BACKUPDIR\//}"
 	bdir="$(basename "$reldir")"
 
 	# TODO: improve
@@ -133,13 +126,9 @@ repack_dump()
 {
 fatal "Do not realized jet!"
 # Получаем список каталогов, которые мы хотим превратить в файлы
-find "$BACKUPDIR" -depth -maxdepth $DEPTH -mindepth $DEPTH -type d | \
-while read subdir ; do
-	# TODO: не забыть файлы в основном каталоге
-	# TODO: неизвестно, как сделать нерекурсивным
+find "$BACKUPDIR" -depth -maxdepth $DEPTH -mindepth $DEPTH -type d -printf "%P\n" | \
+while read reldir ; do
 
-	# /var/log/long/something -> long/something
-	reldir="${subdir/$BACKUPDIR\//}"
 	bdir="$(basename "$reldir")"
 
 	# TODO: improve
@@ -166,10 +155,10 @@ done
 
 extract_dump()
 {
+mkdir -p "$DESTDIR" || fatal "Can't create output directory $DESTDIR"
 # Note: 000.zpaq don't work here, but we can use ???.zpaq
-find "$DUMPDIR" -type f -name "*.$ST1.zpaq" | \
-while read paqfile ; do
-	relfile="${paqfile/$DUMPDIR\//}"
+find "$DUMPDIR" -type f -name "*.$ST1.zpaq" -printf "%P\n" | \
+while read relfile ; do
 	reldir="$(dirname "$relfile")"
 	# FIXME: copy dir permissions
 	# TODO: хранить структуру каталогов отдельно, сразу и проверка?
@@ -183,7 +172,7 @@ while read paqfile ; do
 
 	echo
 	echo "Extract files from $relfile to $DESTDIR/$reldir ..."
-	zpaq extract "$paqfile"
+	zpaq extract "$DUMPDIR/$relfile"
 	cd - >/dev/null
 done
 }
