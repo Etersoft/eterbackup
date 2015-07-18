@@ -57,6 +57,10 @@ while read subdir ; do
 	fi
 	echo "$reldir"
 done
+
+# Список файлов:
+find $BACKUPDIR -maxdepth 1 -type f | sed -e "s|$BACKUPDIR/||g"
+
 }
 
 update_dump()
@@ -95,6 +99,30 @@ while read subdir ; do
 		$EXECUTEAFTER "$DUMPDIR/$reldir/$bdir.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
 	fi
 done
+
+# Получаем список файлов в корне
+# TODO: Здесь бы надо просто выключить рекурсию, но неизвестно как
+# Также неизвестно, как раскрыть
+local FILES=$(find $BACKUPDIR -maxdepth 1 -type f | sed -e "s|$BACKUPDIR/||g")
+if [ -n "$FILES" ] ; then
+
+	bdir="$(basename "$BACKUPDIR")"
+
+	# FIXME: copy dir permissions
+	mkdir -p "$DUMPDIR"
+
+	# workaround for correct internal path
+	cd "$BACKUPDIR" || exit
+
+	# packing
+	zpaq a "$DUMPDIR/$bdir.$STN.zpaq" $FILES
+	cd - >/dev/null
+
+	if [ -n "$EXECUTEAFTER" ] ; then
+		$EXECUTEAFTER "$DUMPDIR/$bdir.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
+	fi
+fi
+
 }
 
 repack_dump()
@@ -142,7 +170,10 @@ while read paqfile ; do
 	# FIXME: copy dir permissions
 	# TODO: хранить структуру каталогов отдельно, сразу и проверка?
 	mkdir -p "$DESTDIR/$reldir" || exit
-	cd "$DESTDIR/$reldir/.."
+	[ "$reldir" = "." ] && cd "$DESTDIR/" || cd "$DESTDIR/$reldir/.."
+	echo
+	echo "Extract files from $relfile to $DESTDIR/$reldir ..."
+	# TODO: run with 000?
 	zpaq extract "${paqfile/.$STZ.zpaq/.$STN.zpaq}"
 	cd - >/dev/null
 done
