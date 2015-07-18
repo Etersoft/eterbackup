@@ -49,7 +49,7 @@ while read reldir ; do
 
 	# TODO: improve
 	if [ "$bdir" = "$EXCLUDEDIR" ] ; then
-		echo "Skip excluded $bdir"
+		#echo "Skip excluded $bdir"
 		continue
 	fi
 
@@ -85,7 +85,7 @@ while read reldir ; do
 
 	# workaround for correct internal path
 	cd "$BACKUPDIR/$reldir/.." || exit
-	# packing
+
 	echo
 	echo "Packing $reldir/$bdir..."
 	zpaq a "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir"
@@ -162,8 +162,10 @@ while read relfile ; do
 	reldir="$(dirname "$relfile")"
 	# FIXME: copy dir permissions
 	# TODO: хранить структуру каталогов отдельно, сразу и проверка?
+	# TODO: не создавать предварительно каталог. Он уже есть внутри архива
 	mkdir -p "$DESTDIR/$reldir" || exit
 
+	# workaround for root archive
 	if [ "$reldir" = "." ] ; then
 		cd "$DESTDIR/"
 	else
