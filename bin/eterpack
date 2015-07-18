@@ -90,6 +90,10 @@ while read subdir ; do
 	echo "Packing $bdir..."
 	zpaq a "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir"
 	cd - >/dev/null
+
+	if [ -n "$EXECUTEAFTER" ] ; then
+		$EXECUTEAFTER "$DUMPDIR/$reldir/$bdir.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
+	fi
 done
 }
 
@@ -161,6 +165,13 @@ if [ "$1" = "--exclude" ] ; then
 	shift
 fi
 
+EXECUTEAFTER=
+if [ "$1" = "--execute" ] ; then
+	shift
+	EXECUTEAFTER="$1"
+	shift
+fi
+
 case $COMMAND in
 	update)
 		# from
@@ -204,6 +215,10 @@ case $COMMAND in
 		echo
 		echo "Extract backup:"
 		echo "	$ eterbackup extract /path/backup /path/to"
+
+		echo
+		echo "Options:"
+		echo "	--execute command  - execute 'command' after every archive"
 	;;
 	*)
 		echo "$DESCR" >&2
