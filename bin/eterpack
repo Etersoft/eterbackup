@@ -18,6 +18,7 @@
 
 # template for continous
 STZ="000"
+ST1="001"
 STN="???"
 
 DESCR="eterbackup version 0.1 (c) Etersoft 2015"
@@ -165,8 +166,8 @@ done
 
 extract_dump()
 {
-# CHECKME: always exists 000?
-find "$DUMPDIR" -type f -name "*.$STZ.zpaq" | \
+# Note: 000.zpaq don't work here, but we can use ???.zpaq
+find "$DUMPDIR" -type f -name "*.$ST1.zpaq" | \
 while read paqfile ; do
 	relfile="${paqfile/$DUMPDIR\//}"
 	reldir="$(dirname "$relfile")"
@@ -182,8 +183,7 @@ while read paqfile ; do
 
 	echo
 	echo "Extract files from $relfile to $DESTDIR/$reldir ..."
-	# TODO: run with 000?
-	zpaq extract "${paqfile/.$STZ.zpaq/.$STN.zpaq}"
+	zpaq extract "$paqfile"
 	cd - >/dev/null
 done
 }
