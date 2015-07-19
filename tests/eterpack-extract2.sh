@@ -21,9 +21,7 @@ $ETERPACK extract packed unpacked || exit 1
 
 $ETERPACK compare packed unpacked || exit 1
 
-echo
-echo "Diffing:"
-diff -r unpacked sample || exit 1
+diff_dirs unpacked sample
 
 echo "Done! OK!"
 echo "Please, check and remove $BASEDIR"

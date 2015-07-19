@@ -36,11 +36,10 @@ for i in 1 2 3 4; do
 done
 
 for i in 1 2 3 4; do
-	echo
-	echo "Diffing sample$i:"
-	diff -r unpacked$i sample$i || exit 1
-	echo "Done! OK!"
+	diff_dirs unpacked$i sample$i
 done
+
+echo "Done! OK!"
 
 echo "Please, check and remove $BASEDIR"
 #rm -rf $BASEDIR

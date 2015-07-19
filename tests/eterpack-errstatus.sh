@@ -11,7 +11,7 @@ create_tree $BASEDIR/sample
 
 cd $BASEDIR || exit 1
 
-$ETERPACK update sample packed && fatal "update with unexists dir!"
+$ETERPACK update sample1 packed && fatal "update with unexists dir!"
 
 #$ETERPACK update sample packed || fatal "can't pack sapmle"
 

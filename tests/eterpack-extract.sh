@@ -11,13 +11,11 @@ create_tree $BASEDIR/sample
 
 cd $BASEDIR || exit 1
 
-$ETERPACK update sample packed || exit 1
+$ETERPACK update sample packed || fatal "Error in update"
 
-$ETERPACK extract packed unpacked || exit 1
+$ETERPACK extract packed unpacked || fatal "Error in extract"
 
-echo
-echo "Diffing:"
-diff -r unpacked sample || exit 1
+diff_dirs unpacked sample
 
 echo "Done! OK!"
 echo "Please, check and remove $BASEDIR"
