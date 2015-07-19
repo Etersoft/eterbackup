@@ -17,6 +17,7 @@ create_files()
 		tf=$(mktemp $td/tf-XXXX)
 		dd if=/dev/urandom of=$tf count=100 2>/dev/null || fatal "Can't create $tf"
 		chgrp $GROUP $tf
+		chmod a+rwX $tf
 	done
 
 	for f in $(seq 1 5) ; do
@@ -60,4 +61,17 @@ diff_dirs()
 	echo
 	echo "Diffing $2:"
 	diff -r --no-dereference $1 $2 || fatal "Failed"
+}
+
+diffls_dirs()
+{
+	echo
+	echo "Diffing $2 via ls:"
+	for i in $1 $2 ; do
+		cd $i || return
+		LANG=C ls -l --full-time >../$i.list
+		cd -
+	done
+
+	diff -u -- $1.list $2.list
 }
