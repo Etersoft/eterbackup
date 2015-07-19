@@ -105,18 +105,15 @@ get_mark()
 
 rotate_dir()
 {
+	# rotate only we have $LAST already
+	[ -d "$ROTATEDIR/$LAST" ] || return
+
 	# TODO: what about continue rotate process?
 	[ -n "$(get_status)" ] && fatal "$0 already in $(get_status) process..."
 
 	set_status "rotate"
 	MARK=$(get_mark $METHOD)
 	[ -n "$MARK" ] || fatal "Can't get dir name for rotating"
-
-	# for first time just create target
-	if [ ! -d "$ROTATEDIR/$LAST" ] ; then
-		mkdir -p "$ROTATEDIR/$LAST" || fatal "Can't create $ROTATEDIR/$LAST"
-		return
-	fi
 
 	# real rotate
 	[ -d "$ROTATEDIR/$MARK.tmp" ] && fatal "$ROTATEDIR/$MARK.tmp already exists"
@@ -146,9 +143,8 @@ update_dir()
 	local STATUS=$(get_status)
 	[ -n "$STATUS" ] && [ "$STATUS" != "sync" ] && fatal "$0 already in $STATUS process..."
 
-	if [ -z "$STATUS" ] ; then
-		rotate_dir || fatal "Can't rotate before sync"
-	fi
+	# if rotate_dir will fail, we will exit via fatal
+	[ -z "$STATUS" ] && rotate_dir
 
 	set_status "sync"
 	if [ -d "$ROTATEDIR/$LAST" ] ; then
@@ -191,7 +187,15 @@ case $COMMAND in
 		update_dir
 	;;
 	rotate)
+		[ -d "$1" ] || fatal "Run with exists dir for rotate"
 		ROTATEDIR=$(realpath -e "$1") || exit
+
+		# for first time just create target
+		if [ ! -d "$ROTATEDIR/$LAST" ] ; then
+			mkdir -p "$ROTATEDIR/$LAST" || fatal "Can't create $ROTATEDIR/$LAST"
+			exit
+		fi
+
 		rotate_dir
 	;;
 	-h|--help)
