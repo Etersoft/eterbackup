@@ -100,6 +100,7 @@ done || return
 # TODO: Здесь бы надо просто выключить рекурсию, но неизвестно как
 # Также неизвестно, как раскрыть
 # FIXME: broken with paths with spaces
+# TODO: не поддерживается удаление файлов
 local FILES=$(list_files)
 if [ -n "$FILES" ] ; then
 
@@ -261,7 +262,7 @@ case $COMMAND in
 		DESTDIR="$(realpath -e "$1")"
 		compare_dump
 	;;
-	list)
+	inlist)
 		# from
 		BACKUPDIR="$(realpath -e "$1")" || exit
 		echo "Dirs:"
@@ -289,15 +290,18 @@ case $COMMAND in
 		echo "Update backup:"
 		echo "	$ eterbackup update /path/from /path/to"
 
-		echo
-		echo "Repack backup (refresh zpaq files for minimize):"
-		echo "	$ eterbackup repack /path/from /path/to"
+		#echo
+		#echo "Repack backup (refresh zpaq files for minimize):"
+		#echo "	$ eterbackup repack /path/from /path/to"
 
 		echo
 		echo "Extract backup:"
 		echo "	$ eterbackup extract /path/backup /path/to"
 
 		echo
+		echo "Compare backup:"
+		echo "	$ eterbackup compare /path/backup /path/to"
+
 		echo
 		echo "Test backup:"
 		echo "	$ eterbackup test /path/backup"
