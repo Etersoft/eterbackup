@@ -80,8 +80,8 @@ save_attrs()
 
 remove_attrs()
 {
-	rm -f ".eterpack.special.files.pax" 2>/dev/null
-	rm -f ".metadata" 2>/dev/null
+	rm -f "$1/.eterpack.special.files.pax" 2>/dev/null
+	rm -f "$1/.metadata" 2>/dev/null
 }
 
 # абсолютный путь к каталогу для восстановления
@@ -93,7 +93,7 @@ restore_attrs()
 	[ -s ".eterpack.special.files.pax" ] && pax -r -f .eterpack.special.files.pax
 	[ -s ".metadata" ] && metastore -a
 
-	remove_attrs
+	remove_attrs .
 	#cd - >/dev/null
 	return 0
 }
@@ -116,10 +116,7 @@ update_archive()
 
 	cd - >/dev/null
 
-	cd "$BACKUPDIR" || exit
-	remove_attrs
-
-	cd - >/dev/null
+	remove_attrs "$BACKUPDIR"
 
 	if [ -n "$EXECUTEAFTER" ] ; then
 		$EXECUTEAFTER "$DUMPDIR/$bdir.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
@@ -192,8 +189,9 @@ if [ -n "$FILES" ] ; then
 	echo "Packing files ..."
 	# TODO: use -to for rename internal path
 	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" $FILES $CHECKSUM || { cd - ; return 1 ; }
-	remove_attrs
 	cd - >/dev/null
+
+	remove_attrs "$BACKUPDIR"
 
 	if [ -n "$EXECUTEAFTER" ] ; then
 		$EXECUTEAFTER "$DUMPDIR/$bdir.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
