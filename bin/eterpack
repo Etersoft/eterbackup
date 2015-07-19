@@ -122,7 +122,7 @@ while read reldir ; do
 	cd "$BACKUPDIR/$reldir/.." || exit
 
 	echo
-	echo "Packing $reldir/$bdir..."
+	echo "Packing $reldir/$bdir ..."
 	# TODO: use -to for rename internal path
 	zpaq add "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir" $CHECKSUM || { cd - ; exit 1 ; }
 	cd - >/dev/null
@@ -159,7 +159,8 @@ if [ -n "$FILES" ] ; then
 	# workaround for correct internal path
 	cd "$BACKUPDIR" || exit
 
-	# packing
+	echo
+	echo "Packing files ..."
 	# TODO: use -to for rename internal path
 	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" $FILES $CHECKSUM || { cd - ; return 1 ; }
 	remove_attrs
@@ -243,7 +244,7 @@ compare_dump()
 		echo
 		echo "Compare files from $relfile with $DESTDIR/$reldir ..."
 		zpaq list "$DUMPDIR/$relfile" "$reldir" -to "$DESTDIR/$reldir" -not = $CHECKSUM || exit
-	done
+	done || return
 }
 
 test_dump()
@@ -256,7 +257,7 @@ test_dump()
 		echo
 		echo "Checking $relfile ..."
 		zpaq extract "$DUMPDIR/$relfile" -test || exit
-	done
+	done || return
 
 	# TODO: add checking by dirs.lists (correct structure)
 }
@@ -304,6 +305,7 @@ case $COMMAND in
 
 		# to
 		DUMPDIR="$(realpath -m "$2")"
+
 		update_dump || exit
 		# TODO: это второй прогон. Надо встроить внутрь. Но там будет дописывание в файл
 		list_dirs >$DUMPDIR/dirs.list
@@ -320,7 +322,7 @@ case $COMMAND in
 	compare)
 		DUMPDIR="$(realpath -e "$1")"
 
-		DESTDIR="$(realpath -e "$1")"
+		DESTDIR="$(realpath -e "$2")"
 		compare_dump
 	;;
 	inlist)
