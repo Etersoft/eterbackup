@@ -72,7 +72,7 @@ save_attrs()
 	local dir="."
 	#[ -r ".metadata" ] || return
 	# TODO: will we have error checking here?
-	find $dir -depth -type b -or -type c -or -type p -or -type l -or -type s -printf "%P\n" | pax -wd -f .eterpack.special.files.pax || return
+	find $dir -depth "(" -type b -or -type c -or -type p -or -type l -or -type s ")" -printf "%P\n" | pax -wd -f .eterpack.special.files.pax || return
 	metastore -s || return
 	# if didn't create, return
 	#[ -r ".eterpack.special.files.pax" || return
