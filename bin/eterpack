@@ -63,6 +63,41 @@ list_files()
 	find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth 1 -type f -printf "%P\n"
 }
 
+# we need save all attrs before packing (for put files it in archive)
+# FIXME: it needs write permission to the source tree
+# FIXME: saved attrs for all file tree not every archive file
+save_attrs()
+{
+	[ -n "$NOATTRIBUTE" ] && return
+	local dir="."
+	#[ -r ".metadata" ] || return
+	# TODO: will we have error checking here?
+	find $dir -depth -print -type b -or -type c -or -type p -or -type l -or -type s | pax -wd -f .eterpack.special.files.pax || return
+	metastore -s || return
+	# if didn't create, return
+	#[ -r ".eterpack.special.files.pax" || return
+}
+
+remove_attrs()
+{
+	rm -f ".eterpack.special.files.pax" 2>/dev/null
+	rm -f ".metadata" 2>/dev/null
+}
+
+# абсолютный путь к каталогу для восстановления
+restore_attrs()
+{
+	#local dir="$1"
+	#cd $dir || return
+	# always uses local .metastore for all subdirs
+	[ -s ".eterpack.special.files.pax" ] && pax -r -f .eterpack.special.files.pax
+	[ -s ".metadata" ] && metastore -a
+
+	remove_attrs
+	#cd - >/dev/null
+	return 0
+}
+
 update_dump()
 {
 # Получаем список каталогов, которые мы хотим превратить в файлы
@@ -103,6 +138,17 @@ done || return
 # FIXME: broken with paths with spaces
 # TODO: не поддерживается удаление файлов
 local FILES=$(list_files)
+
+	echo
+	echo "Save attrs and special files..."
+	cd "$BACKUPDIR" || exit
+	if save_attrs ; then
+		# TODO: overhead
+		[ -s ".eterpack.special.files.pax" ] && FILES="$FILES .eterpack.special.files.pax"
+		[ -s ".metadata" ] && FILES="$FILES .metadata"
+	fi
+	cd - >/dev/null
+
 if [ -n "$FILES" ] ; then
 
 	bdir="$(basename "$BACKUPDIR")"
@@ -116,6 +162,7 @@ if [ -n "$FILES" ] ; then
 	# packing
 	# TODO: use -to for rename internal path
 	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" $FILES $CHECKSUM || { cd - ; return 1 ; }
+	remove_attrs
 	cd - >/dev/null
 
 	if [ -n "$EXECUTEAFTER" ] ; then
@@ -177,6 +224,12 @@ while read relfile ; do
 	echo "Extract files from $relfile to $tdir ..."
 	zpaq extract "$DUMPDIR/$relfile" -to "$tdir" || exit
 done
+
+	cd "$DESTDIR" || return
+	echo
+	echo "Restore attrs ..."
+	restore_attrs "$tdir"
+	cd - >/dev/null
 }
 
 compare_dump()
@@ -236,6 +289,12 @@ CHECKSUM=
 if [ "$1" = "--checksum" ] ; then
 	shift
 	CHECKSUM="-force"
+fi
+
+NOATTRIBUTE=
+if [ "$1" = "--noattribute" ] ; then
+	shift
+	NOATTRIBUTE=1
 fi
 
 case $COMMAND in
@@ -314,6 +373,7 @@ case $COMMAND in
 		echo "	--exclude name     - exclude dir 'name' from packing"
 		echo "	--execute command  - execute 'command' after every archive"
 		echo "	--checksum         - force checking file contains, not date only"
+		echo "	--noattribute      - do not extra save owner/group, permissions and special files"
 	;;
 	*)
 		echo "$DESCR" >&2
