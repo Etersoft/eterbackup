@@ -98,6 +98,35 @@ restore_attrs()
 	return 0
 }
 
+update_archive()
+{
+	bdir="$(basename "$BACKUPDIR")"
+
+	echo
+	echo "Save attrs and special files..."
+	cd "$BACKUPDIR" || exit
+	save_attrs
+	cd - >/dev/null
+
+
+	cd "$BACKUPDIR/.." || exit
+	echo
+	echo "Packing $BACKUPDIR ..."
+	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" "$bdir" -to . $CHECKSUM || { cd - ; exit 1 ; }
+
+	cd - >/dev/null
+
+	cd "$BACKUPDIR" || exit
+	remove_attrs
+
+	cd - >/dev/null
+
+	if [ -n "$EXECUTEAFTER" ] ; then
+		$EXECUTEAFTER "$DUMPDIR/$bdir.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
+	fi
+
+}
+
 update_dump()
 {
 # Получаем список каталогов, которые мы хотим превратить в файлы
@@ -305,6 +334,11 @@ case $COMMAND in
 
 		# to
 		DUMPDIR="$(realpath -m "$2")"
+
+		if [ "$DEPTH" = "0" ] ; then
+			update_archive
+			exit
+		fi
 
 		update_dump || exit
 		# TODO: это второй прогон. Надо встроить внутрь. Но там будет дописывание в файл
