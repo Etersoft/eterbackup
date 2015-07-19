@@ -21,7 +21,7 @@ STZ="000000"
 ST1="000001"
 STN="??????"
 
-DESCR="eterbackup version 0.3 (c) Etersoft 2015"
+DESCR="eterbackup version 0.4 (c) Etersoft 2015"
 
 print_message()
 {
