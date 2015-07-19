@@ -19,6 +19,8 @@ $ETERPACK update --depth 2 sample packed || exit 1
 
 $ETERPACK extract packed unpacked || exit 1
 
+$ETERPACK compare packed unpacked || exit 1
+
 echo
 echo "Diffing:"
 diff -r unpacked sample || exit 1
