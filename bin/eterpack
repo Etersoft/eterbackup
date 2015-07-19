@@ -190,6 +190,21 @@ compare_dump()
 	done
 }
 
+test_dump()
+{
+	# Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
+	find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
+	while read relfile ; do
+		reldir="$(dirname "$relfile")"
+
+		echo
+		echo "Checking $relfile ..."
+		zpaq extract "$DUMPDIR/$relfile" -test || exit
+	done
+
+	# TODO: add checking by dirs.lists (correct structure)
+}
+
 COMMAND=$1
 shift
 
@@ -262,6 +277,10 @@ case $COMMAND in
 		[ -n "$2" ] && DESTDIR="$(realpath -m "$2")"
 		extract_dump
 	;;
+	test|check)
+		DUMPDIR="$(realpath -e "$1")" || exit
+		test_dump
+	;;
 	-h|--help)
 		echo $DESCR
 		echo "Run with $0 command [options] args"
@@ -277,6 +296,11 @@ case $COMMAND in
 		echo
 		echo "Extract backup:"
 		echo "	$ eterbackup extract /path/backup /path/to"
+
+		echo
+		echo
+		echo "Test backup:"
+		echo "	$ eterbackup test /path/backup"
 
 		echo
 		echo "Options:"
