@@ -72,7 +72,7 @@ save_attrs()
 	local dir="."
 	#[ -r ".metadata" ] || return
 	# TODO: will we have error checking here?
-	find $dir -depth -print -type b -or -type c -or -type p -or -type l -or -type s | pax -wd -f .eterpack.special.files.pax || return
+	find $dir -depth -type b -or -type c -or -type p -or -type l -or -type s -printf "%P\n" | pax -wd -f .eterpack.special.files.pax || return
 	metastore -s || return
 	# if didn't create, return
 	#[ -r ".eterpack.special.files.pax" || return
@@ -122,7 +122,7 @@ while read reldir ; do
 	cd "$BACKUPDIR/$reldir/.." || exit
 
 	echo
-	echo "Packing $reldir/$bdir ..."
+	echo "Packing $reldir ..."
 	# TODO: use -to for rename internal path
 	zpaq add "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir" $CHECKSUM || { cd - ; exit 1 ; }
 	cd - >/dev/null
