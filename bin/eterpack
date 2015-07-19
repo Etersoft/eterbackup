@@ -88,7 +88,8 @@ while read reldir ; do
 
 	echo
 	echo "Packing $reldir/$bdir..."
-	zpaq a "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir" $CHECKSUM || { cd - ; exit 1 ; }
+	# TODO: use -to for rename internal path
+	zpaq add "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir" $CHECKSUM || { cd - ; exit 1 ; }
 	cd - >/dev/null
 
 	if [ -n "$EXECUTEAFTER" ] ; then
@@ -113,7 +114,8 @@ if [ -n "$FILES" ] ; then
 	cd "$BACKUPDIR" || exit
 
 	# packing
-	zpaq a "$DUMPDIR/$bdir.$STN.zpaq" $FILES $CHECKSUM || { cd - ; return 1 ; }
+	# TODO: use -to for rename internal path
+	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" $FILES $CHECKSUM || { cd - ; return 1 ; }
 	cd - >/dev/null
 
 	if [ -n "$EXECUTEAFTER" ] ; then
@@ -125,7 +127,7 @@ fi
 
 repack_dump()
 {
-fatal "Do not realized jet!"
+fatal "Do not realized jet! zpaq purge does not exists anymore!"
 # Получаем список каталогов, которые мы хотим превратить в файлы
 find "$BACKUPDIR" -depth -maxdepth $DEPTH -mindepth $DEPTH -type d -printf "%P\n" | \
 while read reldir ; do
