@@ -103,6 +103,41 @@ get_mark()
 	esac
 }
 
+thin_log2rotate_dir()
+{
+	# definitely we need $LAST is exists
+	[ -d "$ROTATEDIR/$LAST" ] || return
+
+	# TODO: what about continue rotate process?
+	[ -n "$(get_status)" ] && fatal "$0 already in $(get_status) process..."
+
+	cd $ROTATEDIR || fatal
+	set_status "delete"
+
+	epm assure log2rotate pylog2rotate || fatal
+	# "%Y-%m-%d"
+	# TODO: check --fuzz
+	OPTIONS=
+	[ -n "$FORCE" ] && OPTIONS="--unsafe"
+	DIRS=$(ls -1 -d ????-??-?? | sort | a= log2rotate --delete $OPTIONS)
+	echo "Follow dirs may be deleted:"
+	if [ -n "$DEBUG" ] ; then
+		echo
+		echo "Debug mode, follow dirs may be deleted:"
+		echo "$DIRS"
+	else
+		for i in $DIRS; do
+			echo "Deleting $i ..."
+			rm -rf $i
+		done
+	fi
+
+	set_status ""
+	cd - >/dev/null
+	echo "Done."
+
+}
+
 rotate_dir()
 {
 	# rotate only we have $LAST already
@@ -177,6 +212,19 @@ if [ "$1" = "--force" ] ; then
 	FORCE=1
 fi
 
+DEBUG=
+if [ "$1" = "--debug" ] ; then
+	shift
+	DEBUG=1
+fi
+
+THINNER=
+if [ "$1" = "--thinner" ] ; then
+	shift
+	THINNER=$1
+	shift
+fi
+
 case $COMMAND in
 	update)
 		# from
@@ -197,6 +245,16 @@ case $COMMAND in
 		fi
 
 		rotate_dir
+	;;
+	delete)
+		[ -d "$1" ] || fatal "Run with exists dir for rotate"
+		ROTATEDIR=$(realpath -e "$1") || exit
+
+		[ "$METHOD" = "date" ] || fatal "Allowed method for thin is only 'date'"
+		# TODO: add lastN alg
+		[ "$THINNER" = "log2" ] || fatal "Allowed thin algorithm for thin is only 'log2'"
+
+		thin_log2rotate_dir
 	;;
 	-h|--help)
 		echo $DESCR
