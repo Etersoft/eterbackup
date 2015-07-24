@@ -51,13 +51,15 @@ check_params()
         [ -d "$REMOVEDIR" ] || fatal "Working directory does not exists"
 
         if [ -n "$NOTEST" ] ; then
-                CMD_RMRF="rm -rf"
-                CMD_RMF="rm -f"
-                CMD_RMDIR="rmdir -p"
+                CMD_RMRF="rm -vrf"
+                CMD_RMF="rm -vf"
+                CMD_RMDIR="rmdir -p --ignore-fail-on-non-empty"
         else
                 CMD_RMRF="ls -ld"
                 CMD_RMF="ls -ld"
                 CMD_RMDIR="ls -ld"
+
+                echo "It is a test run (no files will be deleted)"
         fi
 
         return 0
@@ -69,29 +71,49 @@ remove_empty_dirs()
         # minutes for empty dir
         local MPAUSE="$1"
 
+        [ -z "$NOTEST" ] && echo "Empty directories to remove below:"
+
         # clean empty dirs
-        find "$REMOVEDIR" -depth -type d -cmin +$MPAUSE ! -name "$EXCLUDEDIR" -print0 xargs -0 -- $CMD_RMDIR 2>/dev/null
+        find "$REMOVEDIR" -depth -type d -cmin +$MPAUSE ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMDIR
+
+        # TODO: надо как-то сообщать об успешно удалённых каталогах.
+        # Вообще rmdir -p не требует перечисления всех каталогов. Достаточно только самых вложенных
+        # TODO: тут нужно применить функцию, которая совпадающие строки «вожмёт» короткую в длинную
+
+        [ -z "$NOTEST" ] && echo "Broken links to remove below:"
+        find "$REMOVEDIR" -depth -type l ! -name "$EXCLUDEDIR" | \
+                while read link ; do
+                        readlink -e "$link" >/dev/null && continue
+                        $CMD_RMF "$link"
+                done
+
 }
 
 remove_old_files()
 {
         assert_var REMOVEDIR DEPTH DAYSAGO
 
-        find "$REMOVEDIR" -depth -mindepth $DEPTH \
-                "(" -type f -or -type l ")" -mtime +"$DAYSAGO" ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMF
+        [ -z "$NOTEST" ] && echo "Files older than $DAYSAGO below:"
 
-        remove_empty_dirs 70
+        find "$REMOVEDIR" -depth -mindepth $DEPTH \
+                ! -type d -mtime +"$DAYSAGO" ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMF
+
+        # битые ссылки удаляться в remove_empty_dirs
+
+        remove_empty_dirs 0
 }
 
 remove_old_dirs()
 {
         assert_var REMOVEDIR DEPTH DAYSAGO
 
+        [ -z "$NOTEST" ] && echo "Directories older than $DAYSAGO below:"
+
         # TODO: check status (deferred until correct test)
         find "$REMOVEDIR" -depth -mindepth $DEPTH \
                 -type d -mtime +"$DAYSAGO" ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMRF
 
-        remove_empty_dirs 70
+        remove_empty_dirs 0
 }
 
 
