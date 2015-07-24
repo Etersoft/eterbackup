@@ -1,0 +1,192 @@
+#!/bin/sh
+# Copyright (C) 2007, 2015  Etersoft
+# Copyright (C) 2007  Pavel Vainerman <pv@etersoft.ru>
+# Copyright (C) 2015  Vitaly Lipatov <lav@etersoft.ru>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
+DESCR="eterremove version 0.1 (c) Etersoft 2015"
+
+print_message()
+{
+	local DESC="$1"
+	shift
+	echo "$DESC in $(basename $0): $@"
+}
+
+# Print error message and stop the program
+fatal()
+{
+	print_message Error "$@" >&2
+	exit 1
+}
+
+assert_var()
+{
+	local i re
+
+	for i in $@ ; do
+		re=$(eval echo \$$i)
+		[ -n "$re" ] || fatal "assert: $i is not exists"
+	done
+}
+
+
+check_params()
+{
+        [ -n "$DAYSAGO" ] || fatal "Check --help or man page for correct set days ago"
+        [ "$DAYSAGO" != "0" ] || fatal "Zero days ago is the day. It is not supported"
+        [ -d "$REMOVEDIR" ] || fatal "Working directory does not exists"
+
+        if [ -n "$NOTEST" ] ; then
+                CMD_RMRF="rm -rf"
+                CMD_RMF="rm -f"
+                CMD_RMDIR="rmdir -p"
+        else
+                CMD_RMRF="ls -ld"
+                CMD_RMF="ls -ld"
+                CMD_RMDIR="ls -ld"
+        fi
+
+        return 0
+}
+
+remove_empty_dirs()
+{
+        assert_var REMOVEDIR DEPTH DAYSAGO
+        # minutes for empty dir
+        local MPAUSE="$1"
+
+        # clean empty dirs
+        find "$REMOVEDIR" -depth -type d -cmin +$MPAUSE ! -name "$EXCLUDEDIR" -print0 xargs -0 -- $CMD_RMDIR 2>/dev/null
+}
+
+remove_old_files()
+{
+        assert_var REMOVEDIR DEPTH DAYSAGO
+
+        find "$REMOVEDIR" -depth -mindepth $DEPTH \
+                "(" -type f -or -type l ")" -mtime +"$DAYSAGO" ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMF
+
+        remove_empty_dirs 70
+}
+
+remove_old_dirs()
+{
+        assert_var REMOVEDIR DEPTH DAYSAGO
+
+        # TODO: check status (deferred until correct test)
+        find "$REMOVEDIR" -depth -mindepth $DEPTH \
+                -type d -mtime +"$DAYSAGO" ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMRF
+
+        remove_empty_dirs 70
+}
+
+
+COMMAND=$1
+shift
+
+DEPTH=1
+if [ "$1" = "-depth" ] || [ "$1" = "--depth" ] ; then
+	shift
+	DEPTH=$1
+	shift
+fi
+
+EXCLUDEDIR=
+if [ "$1" = "--exclude" ] ; then
+	shift
+	EXCLUDEDIR="$1"
+	shift
+fi
+
+
+DAYSAGO=
+if [ "$1" = "--days" ] ; then
+	shift
+	DAYSAGO=$1
+	shift
+fi
+
+NOTEST=
+if [ "$1" = "--notest" ] ; then
+	shift
+	NOTEST=1
+fi
+
+FORCE=
+if [ "$1" = "--force" ] ; then
+	shift
+	FORCE=1
+fi
+
+SUBCOMMAND="$1"
+shift
+
+case "$COMMAND $SUBCOMMAND" in
+	"remove dirs")
+		# from
+		REMOVEDIR=$(realpath -e "$1") || exit
+		check_params
+		remove_old_dirs
+	;;
+	"remove files")
+		# from
+		REMOVEDIR=$(realpath -e "$1") || exit
+		check_params
+		remove_old_files
+	;;
+	"remove empty")
+		# from
+		REMOVEDIR=$(realpath -e "$1") || exit
+		check_params
+		remove_empty_dirs 0
+	;;
+	"-h "|"--help ")
+		echo $DESCR
+		echo "Run with $0 command [options] spec path"
+
+		echo
+		echo "Remove obsoleted dirs:"
+		echo "	$ eterremove remove dirs /path/to/remove"
+
+		echo
+		echo "Remove obsoleted files and empty dirs:"
+		echo "	$ eterremove remove files /path/to/remove"
+
+		echo
+		echo "Remove empty dirs:"
+		echo "	$ eterremove remove empty /path/to/remove"
+
+		echo
+		echo "Options:"
+		echo "	--depth N          - set work subdirs level (1 by default)"
+		echo "	--exclude name     - exclude dir 'name' from removing"
+		echo "	--days N           - set work subdirs level"
+		echo "	--notest           - real removing"
+		#echo "	--force                         force"
+
+		echo
+		echo "Examples:"
+		echo "	$ eterremove remove --depth 2 --days 30 files /path/to/remove"
+		echo "	$ eterremove remove --exclude cyrrent --days 10 /path/to/remove"
+	;;
+	*)
+		echo "$DESCR" >&2
+		echo "Run with -h or --help for help" >&2
+		exit 1
+	;;
+esac
+
