@@ -74,7 +74,7 @@ remove_empty_dirs()
         [ -z "$NOTEST" ] && echo "Empty directories to remove below:"
 
         # clean empty dirs
-        find "$REMOVEDIR" -depth -type d -cmin +$MPAUSE ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMDIR
+        find "$REMOVEDIR" -depth $DEPTHMAX -type d -cmin +$MPAUSE ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMDIR
 
         # TODO: надо как-то сообщать об успешно удалённых каталогах.
         # Вообще rmdir -p не требует перечисления всех каталогов. Достаточно только самых вложенных
@@ -95,7 +95,7 @@ remove_old_files()
 
         [ -z "$NOTEST" ] && echo "Files older than $DAYSAGO below:"
 
-        find "$REMOVEDIR" -depth -mindepth $DEPTH \
+        find "$REMOVEDIR" -depth -mindepth $DEPTH $DEPTHMAX \
                 ! -type d -mtime +"$DAYSAGO" ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMF
 
         # битые ссылки удаляться в remove_empty_dirs
@@ -110,7 +110,7 @@ remove_old_dirs()
         [ -z "$NOTEST" ] && echo "Directories older than $DAYSAGO below:"
 
         # TODO: check status (deferred until correct test)
-        find "$REMOVEDIR" -depth -mindepth $DEPTH \
+        find "$REMOVEDIR" -depth -mindepth $DEPTH $DEPTHMAX \
                 -type d -mtime +"$DAYSAGO" ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMRF
 
         remove_empty_dirs 0
@@ -124,6 +124,13 @@ DEPTH=1
 if [ "$1" = "-depth" ] || [ "$1" = "--depth" ] ; then
 	shift
 	DEPTH=$1
+	shift
+fi
+
+DEPTHMAX=
+if [ "$1" = "--depthmax" ] ; then
+	shift
+	DEPTHMAX="-maxdepth $1"
 	shift
 fi
 
@@ -195,6 +202,7 @@ case "$COMMAND $SUBCOMMAND" in
 		echo
 		echo "Options:"
 		echo "	--depth N          - set work subdirs level (1 by default)"
+		echo "	--depthmax N       - set max subdirs level (no range by default)"
 		echo "	--exclude name     - exclude dir 'name' from removing"
 		echo "	--days N           - set work subdirs level"
 		echo "	--notest           - real removing"
