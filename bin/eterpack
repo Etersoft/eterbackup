@@ -403,7 +403,7 @@ case $COMMAND in
 
 		echo
 		echo "Options:"
-		echo "	--depth N          - set depth for subdirs (update only)"
+		echo "	--depth N          - set depth for subdirs (1 by default) (update only)"
 		echo "	--exclude name     - exclude dir 'name' from packing"
 		echo "	--execute command  - execute 'command' after every archive"
 		echo "	--checksum         - force checking file contains, not date only"
