@@ -17,6 +17,8 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
+export LANG=C
+
 DESCR="eterremove version 0.1 (c) Etersoft 2015"
 
 print_message()
@@ -53,11 +55,11 @@ check_params()
         if [ -n "$NOTEST" ] ; then
                 CMD_RMRF="rm -vrf"
                 CMD_RMF="rm -vf"
-                CMD_RMDIR="rmdir -p --ignore-fail-on-non-empty"
+                CMD_RMDIRP="rmdir -p --ignore-fail-on-non-empty"
         else
                 CMD_RMRF="ls -ld"
                 CMD_RMF="ls -ld"
-                CMD_RMDIR="ls -ld"
+                CMD_RMDIRP="ls -ld"
 
                 echo "It is a test run (no files will be deleted)"
         fi
@@ -65,11 +67,28 @@ check_params()
         return 0
 }
 
+# TODO: правильное название
+remove_short_paths()
+{
+        local path
+        # Note! do not use local for prev, it sets in piped while
+        prev=""
+
+        sort -r | while read path; do
+                # skip if prev path starts with the path string
+                echo "$prev" | grep -q "^$path" && continue
+                echo "$path"
+                prev="$path"
+        done
+}
+
 remove_broken_links()
 {
         assert_var REMOVEDIR
+        local link
+
         [ -z "$NOTEST" ] && echo "Broken links to remove below:"
-        find "$REMOVEDIR" -depth -type l ! -name "$EXCLUDEDIR" | \
+        find "$REMOVEDIR" -depth -type l ! -name "$EXCLUDEDIR" -print | \
                 while read link ; do
                         readlink -e "$link" >/dev/null && continue
                         $CMD_RMF "$link"
@@ -85,11 +104,15 @@ remove_empty_dirs()
         [ -z "$NOTEST" ] && echo "Empty directories to remove below:"
 
         # clean empty dirs
-        find "$REMOVEDIR" -depth $DEPTHMAX -type d -cmin +$MPAUSE ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMDIR
+        #find "$REMOVEDIR" -depth $DEPTHMAX -type d -cmin +$MPAUSE ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMDIRP
 
-        # TODO: надо как-то сообщать об успешно удалённых каталогах.
-        # Вообще rmdir -p не требует перечисления всех каталогов. Достаточно только самых вложенных
-        # TODO: тут нужно применить функцию, которая совпадающие строки «вожмёт» короткую в длинную
+        # clean empty dirs. we use remove_short_paths due rmdir -p will remove all dirs from sequence
+        local path
+        find "$REMOVEDIR" -depth $DEPTHMAX -type d -cmin +$MPAUSE ! -name "$EXCLUDEDIR" -print | \
+                remove_short_paths | while read path ; do
+                    # TODO: add error policy
+                    $CMD_RMDIRP "$path" && [ -n "$NOTEST" ] && echo "removed '$path'"
+                done
 
         remove_broken_links
 
