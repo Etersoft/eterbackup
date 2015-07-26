@@ -65,6 +65,17 @@ check_params()
         return 0
 }
 
+remove_broken_links()
+{
+        assert_var REMOVEDIR
+        [ -z "$NOTEST" ] && echo "Broken links to remove below:"
+        find "$REMOVEDIR" -depth -type l ! -name "$EXCLUDEDIR" | \
+                while read link ; do
+                        readlink -e "$link" >/dev/null && continue
+                        $CMD_RMF "$link"
+                done
+}
+
 remove_empty_dirs()
 {
         assert_var REMOVEDIR DEPTH DAYSAGO
@@ -80,12 +91,7 @@ remove_empty_dirs()
         # Вообще rmdir -p не требует перечисления всех каталогов. Достаточно только самых вложенных
         # TODO: тут нужно применить функцию, которая совпадающие строки «вожмёт» короткую в длинную
 
-        [ -z "$NOTEST" ] && echo "Broken links to remove below:"
-        find "$REMOVEDIR" -depth -type l ! -name "$EXCLUDEDIR" | \
-                while read link ; do
-                        readlink -e "$link" >/dev/null && continue
-                        $CMD_RMF "$link"
-                done
+        remove_broken_links
 
 }
 
