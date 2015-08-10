@@ -233,14 +233,14 @@ case "$COMMAND $SUBCOMMAND" in
 		echo "	--depth N          - set work subdirs level (1 by default)"
 		echo "	--depthmax N       - set max subdirs level (no range by default)"
 		echo "	--exclude name     - exclude dir 'name' from removing"
-		echo "	--days N           - set work subdirs level"
+		echo "	--days N           - remove dirs/files older than N days"
 		echo "	--notest           - real removing"
 		#echo "	--force                         force"
 
 		echo
 		echo "Examples:"
 		echo "	$ eterremove remove --depth 2 --days 30 files /path/to/remove"
-		echo "	$ eterremove remove --exclude cyrrent --days 10 /path/to/remove"
+		echo "	$ eterremove remove --exclude current --days 10 dirs /path/to/remove"
 	;;
 	*)
 		echo "$DESCR" >&2

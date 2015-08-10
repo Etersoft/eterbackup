@@ -1,0 +1,58 @@
+'\" t
+.\"
+.\" Author: Vitaly Lipatov
+.\"
+.\" This file has been put into the public domain.
+.\" You can do whatever you want with this file.
+.\"
+.TH ETERBACKUP "August 2015" "Version 0.1"
+
+.SH NAME
+eterremove \- removing obsoleted (by date) directories and/or files.
+.SH SYNOPSIS
+.B eterremove
+.RI [command] [options] [spec] [path]
+.PP
+.br
+.SH DESCRIPTION
+.BI
+eterremove removes obsoleted files or directories and empty directories
+
+.SH OPTIONS
+.TP
+.I -h
+Display help
+.TP
+.I -V
+Show version and exit
+.TP
+.I --depth N
+set work subdirs level (1 by default)
+.TP
+.I --depthman N
+set max subdirs level (no range by default)
+.TP
+.I --exclude name
+exclude dir 'name' from removing
+.TP
+.I --days N
+remove dirs/files older than N days
+.TP
+.I --notest
+do real work. Use it after manual checking.
+
+.SH EXAMPLES
+ # eterremove remove --depth 2 --days 30 files /path/to/remove"
+
+ # eterremove remove --exclude current --days 10 dirs /path/to/remove"
+
+.SH BUGS
+Please report any bugs to lav@etersoft.ru
+.SH EXIT STATUS
+.B eterremove
+will return zero on success and non zero on operation failure.
+.SH SEE ALSO
+.BR eterpack(1), erc (1), etertimemachine (1), zpaq (1)
+.TP
+.B http://wiki.etersoft.ru/Eterbackup
+ETERBACKUP wiki page
