@@ -13,7 +13,7 @@ cd $BASEDIR || exit 1
 
 $ETERPACK update sample packed || exit 1
 
-$ETERPACK check packed || exit 1
+$ETERPACK check packed || fatal "check failed"
 
 echo "Done! OK!"
 echo "Please, check and remove $BASEDIR"

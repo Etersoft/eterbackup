@@ -2,7 +2,7 @@
 
 fatal()
 {
-	echo "$*"
+	echo "FATAL: $*"
 	exit 1
 }
 

@@ -16,6 +16,8 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
+export LANG=C
+
 DESCR="etertimemachine version 0.2 (c) Etersoft 2015"
 
 # last
@@ -252,7 +254,7 @@ case $COMMAND in
 
 		[ "$METHOD" = "date" ] || fatal "Allowed method for thin is only 'date'"
 		# TODO: add lastN alg
-		[ "$THINNER" = "log2" ] || fatal "Allowed thin algorithm for thin is only 'log2'"
+		[ "$THINNER" = "log2" ] || fatal "Allowed thin algorithm for delete is only 'log2'"
 
 		thin_log2rotate_dir
 	;;

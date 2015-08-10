@@ -16,6 +16,8 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
+export LANG=C
+
 # templates for multi part archive names
 STZ="000000"
 ST1="000001"
@@ -98,6 +100,7 @@ restore_attrs()
 	return 0
 }
 
+# direct run for one zpaq archive
 update_archive()
 {
 	bdir="$(basename "$BACKUPDIR")"
@@ -382,7 +385,7 @@ case $COMMAND in
 		echo "Run with $0 command [options] args"
 
 		echo
-		echo "Update backup:"
+		echo "Create/Update backup:"
 		echo "	$ eterbackup update /path/from /path/to"
 
 		#echo
