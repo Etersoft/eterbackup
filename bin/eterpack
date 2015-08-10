@@ -136,8 +136,8 @@ while read reldir ; do
 	bdir="$(basename "$reldir")"
 
 	# TODO: improve
-	if [ "$bdir" = "$EXCLUDEDIR" ] ; then
-		echo "Skip excluded $bdir"
+	if [ "$reldir" = "$EXCLUDEDIR" ] ; then
+		echo "Skip excluded $reldir"
 		continue
 	fi
 
