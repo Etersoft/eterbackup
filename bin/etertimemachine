@@ -195,7 +195,7 @@ update_dir()
 	set_status "sync"
 	if [ -d "$ROTATEDIR/$LAST" ] ; then
 		echo "Syncing $BACKUPDIR to $ROTATEDIR/$LAST..."
-		rsync -av --partial --progress --delete-after "$BACKUPDIR/" "$ROTATEDIR/$LAST/" || fatal "Can't sync. Try again this command."
+		rsync -av --partial --progress --inplace --safe-links --hard-links --delete-after "$BACKUPDIR/" "$ROTATEDIR/$LAST/" || fatal "Can't sync. Try again this command."
 	else
 		echo "Copying for first time..."
 		cp -a "$BACKUPDIR/" "$ROTATEDIR/$LAST/" || fatal "Can't copy. Try again this command."
