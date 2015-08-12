@@ -18,6 +18,9 @@
 
 export LANG=C
 
+PROGDIR=$(dirname $0)
+[ "$PROGDIR" = "." ] && PROGDIR=$(pwd)
+
 # templates for multi part archive names
 STZ="000000"
 ST1="000001"
@@ -86,42 +89,9 @@ list_files()
 	find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth 1 -type f -printf "%P\n"
 }
 
-# TODO: move to separate command
-
-# we need save all attrs before packing (for put files it in archive)
-# FIXME: it needs write permission to the source tree
-# FIXME: saved attrs for all file tree not every archive file
-save_attrs()
+attrstore()
 {
-	[ -n "$NOATTRIBUTE" ] && return
-	local dir="."
-	#[ -r ".metadata" ] || return
-	# TODO: will we have error checking here?
-	# TODO: add EXCLUDEDIR
-	find $dir -depth "(" -type b -or -type c -or -type p -or -type l -or -type s ")" -printf "%P\n" | pax -wd -f .eterpack.special.files.pax || return
-	metastore -s || return
-	# if didn't create, return
-	#[ -r ".eterpack.special.files.pax" || return
-}
-
-remove_attrs()
-{
-	rm -f "$1/.eterpack.special.files.pax" 2>/dev/null
-	rm -f "$1/.metadata" 2>/dev/null
-}
-
-# абсолютный путь к каталогу для восстановления
-restore_attrs()
-{
-	#local dir="$1"
-	#cd $dir || return
-	# always uses local .metastore for all subdirs
-	[ -s ".eterpack.special.files.pax" ] && pax -r -f .eterpack.special.files.pax
-	[ -s ".metadata" ] && metastore -a
-
-	remove_attrs .
-	#cd - >/dev/null
-	return 0
+	$PROGDIR/eterattrstore "$@"
 }
 
 # direct run for single zpaq archive
@@ -129,23 +99,26 @@ update_archive()
 {
 	bdir="$(basename "$BACKUPDIR")"
 
-	echo
-	echo "Save attrs and special files..."
-	cd "$BACKUPDIR" || exit
-	save_attrs
-	cd - >/dev/null
+	if [ -z "$NOATTRIBUTE" ] ; then
+		echo
+		echo "Save attrs and special files..."
+		cd "$BACKUPDIR" || exit
+		attrstore save
+		cd - >/dev/null
+	fi
 
 	local EXCLUDEARG=
 	[ -n "$EXCLUDEDIR" ] && EXCLUDEARG="-not $bdir/$(clean_path "$EXCLUDEDIR")"
 
-	cd "$BACKUPDIR/.." || exit
+	cd "$BACKUPDIR/.." || fatal
 	echo
 	echo "Packing single $BACKUPDIR ..."
 	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG || { cd - ; exit 1 ; }
-
 	cd - >/dev/null
 
-	remove_attrs "$BACKUPDIR"
+	cd "$BACKUPDIR" || fatal
+	attrstore clear
+	cd - >/dev/null
 
 	if [ -n "$EXECUTEAFTER" ] ; then
 		$EXECUTEAFTER "$DUMPDIR/$bdir.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
@@ -212,15 +185,15 @@ done || return
 # FIXME: длина строки ограничена!
 local FILES=$(list_files)
 
+# workaround for correct internal path
+cd "$BACKUPDIR" || exit
+
+if [ -z "$NOATTRIBUTE" ] ; then
 	echo
 	echo "Save attrs and special files..."
-	cd "$BACKUPDIR" || exit
-	if save_attrs ; then
-		# TODO: overhead
-		[ -s ".eterpack.special.files.pax" ] && FILES="$FILES .eterpack.special.files.pax"
-		[ -s ".metadata" ] && FILES="$FILES .metadata"
-	fi
-	cd - >/dev/null
+	attrstore save
+	FILES="$FILES $(attrstore metafiles)"
+fi
 
 if [ -n "$FILES" ] ; then
 
@@ -228,9 +201,6 @@ if [ -n "$FILES" ] ; then
 
 	# FIXME: copy dir permissions
 	mkdir -p "$DUMPDIR"
-
-	# workaround for correct internal path
-	cd "$BACKUPDIR" || exit
 
 	local EXCLUDEARG=
 	if [ -n "$EXCLUDEDIR" ] && rhas "$EXCLUDEDIR" "^/" ; then
@@ -241,14 +211,15 @@ if [ -n "$FILES" ] ; then
 	echo "Packing extra files ..."
 	# TODO: use -to for rename internal path
 	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" $FILES $CHECKSUM $EXCLUDEARG || { cd - ; return 1 ; }
-	cd - >/dev/null
 
-	remove_attrs "$BACKUPDIR"
+	attrstore clear
 
 	if [ -n "$EXECUTEAFTER" ] ; then
 		$EXECUTEAFTER "$DUMPDIR/$bdir.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
 	fi
 fi
+
+cd - >/dev/null
 
 }
 
@@ -305,11 +276,14 @@ while read relfile ; do
 	zpaq extract "$DUMPDIR/$relfile" -to "$tdir" || exit
 done
 
-	cd "$DESTDIR" || return
-	echo
-	echo "Restore attrs ..."
-	restore_attrs "$tdir"
-	cd - >/dev/null
+	if [ -z "$NOATTRIBUTE" ] ; then
+		cd "$DESTDIR" || return
+		echo
+		echo "Restore attrs ..."
+		attrstore restore
+		attrstore clear
+		cd - >/dev/null
+	fi
 }
 
 compare_dump()
