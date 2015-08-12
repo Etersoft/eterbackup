@@ -23,7 +23,7 @@ STZ="000000"
 ST1="000001"
 STN="??????"
 
-DESCR="eterbackup version 0.4 (c) Etersoft 2015"
+DESCR="eterbackup version 0.5 (c) Etersoft 2015"
 
 print_message()
 {
@@ -72,6 +72,8 @@ list_files()
 	find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth 1 -type f -printf "%P\n"
 }
 
+# TODO: move to separate command
+
 # we need save all attrs before packing (for put files it in archive)
 # FIXME: it needs write permission to the source tree
 # FIXME: saved attrs for all file tree not every archive file
@@ -81,6 +83,7 @@ save_attrs()
 	local dir="."
 	#[ -r ".metadata" ] || return
 	# TODO: will we have error checking here?
+	# TODO: add EXCLUDEDIR
 	find $dir -depth "(" -type b -or -type c -or -type p -or -type l -or -type s ")" -printf "%P\n" | pax -wd -f .eterpack.special.files.pax || return
 	metastore -s || return
 	# if didn't create, return
@@ -107,7 +110,7 @@ restore_attrs()
 	return 0
 }
 
-# direct run for one zpaq archive
+# direct run for single zpaq archive
 update_archive()
 {
 	bdir="$(basename "$BACKUPDIR")"
@@ -122,7 +125,7 @@ update_archive()
 	[ -n "$EXCLUDEDIR" ] && EXCLUDEARG="-not $bdir/$EXCLUDEDIR"
 	cd "$BACKUPDIR/.." || exit
 	echo
-	echo "Packing $BACKUPDIR ..."
+	echo "Packing single $BACKUPDIR ..."
 	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG || { cd - ; exit 1 ; }
 
 	cd - >/dev/null
@@ -173,6 +176,7 @@ done || return
 # Также неизвестно, как раскрыть
 # FIXME: broken with paths with spaces
 # TODO: не поддерживается удаление файлов
+# FIXME: длина строки ограничена!
 local FILES=$(list_files)
 
 	echo
@@ -309,6 +313,7 @@ if [ "$1" = "-depth" ] || [ "$1" = "--depth" ] ; then
 	shift
 fi
 
+# TODO: allow repeatable --exclude
 EXCLUDEDIR=
 if [ "$1" = "--exclude" ] ; then
 	shift
@@ -414,10 +419,11 @@ case $COMMAND in
 		echo
 		echo "Options:"
 		echo "	--depth N          - set depth for subdirs (1 by default) (update only)"
-		echo "	--exclude name     - exclude dir 'name' from packing"
+		echo "	--exclude name     - exclude dir 'name' from packing (for non 1 depth use path to excluded dir)"
 		echo "	--execute command  - execute 'command' after every archive"
 		echo "	--checksum         - force checking file contains, not date only"
 		echo "	--noattribute      - do not extra save owner/group, permissions and special files"
+		echo "(use options strict in this order)"
 	;;
 	*)
 		echo "$DESCR" >&2
