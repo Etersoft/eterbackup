@@ -77,6 +77,17 @@ print_metafiles()
 {
 	[ -s "$PAXFILE" ] && echo "$PAXFILE"
 	[ -s "$METAFILE" ] && echo "$METAFILE"
+	return 0
+}
+
+compare_attrs()
+{
+	# TODO:
+	#[ -s "$PAXFILE" ] && echo "$PAXFILE"
+	if [ -s "$METAFILE" ] ; then
+		metastore -c
+	fi
+	return 0
 }
 
 restore_attrs()
@@ -84,6 +95,7 @@ restore_attrs()
 	# always uses local .metastore for all subdirs
 	[ -s "$PAXFILE" ] && pax -r -f .eterpack.special.files.pax
 	[ -s "$METAFILE" ] && metastore -a
+	return 0
 }
 
 COMMAND=$1
@@ -99,6 +111,9 @@ case $COMMAND in
 	restore)
 		restore_attrs
 		;;
+	compare)
+		compare_attrs
+		;;
 	metafiles)
 		print_metafiles
 		;;
@@ -113,6 +128,7 @@ case $COMMAND in
 		echo "Commands:"
 		echo "	save       save attrs"
 		echo "	restore    restore attrs"
+		echo "	compare    show differences between stored and real metadata"
 		echo "	metafiles  print list of created files with metainfo"
 		echo "	clear      remove files with metainfo"
 		;;
