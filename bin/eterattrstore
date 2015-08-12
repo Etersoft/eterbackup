@@ -1,0 +1,125 @@
+#!/bin/sh
+# Copyright (C) 2015  Etersoft
+# Copyright (C) 2015  Vitaly Lipatov <lav@etersoft.ru>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
+# Saved meta info for the current dir with use metastore and pax
+
+export LANG=C
+
+DESCR="eterattrstore - save&restore attrs and special files (c) Etersoft 2015"
+
+print_message()
+{
+	local DESC="$1"
+	shift
+	echo "$DESC in $(basename $0): $@"
+}
+
+# Print error message and stop the program
+fatal()
+{
+	print_message Error "$@" >&2
+	exit 1
+}
+
+# CHECKME: the same like estrlist has ?
+# Note: used egrep! write '[0-9]+(first|two)', not '[0-9]\+...'
+rhas()
+{
+	echo "$1" | egrep -q -- "$2"
+}
+
+PAXFILE=.eterpack.special.files.pax
+METAFILE=.metadata
+
+# FIXME: it needs write permission to the source tree
+save_attrs()
+{
+	local dir="."
+	# TODO: will we have error checking here?
+	# TODO: add EXCLUDEDIR
+
+	# save special files
+	find $dir -depth "(" -type b -or -type c -or -type p -or -type l -or -type s ")" -printf "%P\n" | pax -wd -f $PAXFILE || return
+	[ -s "$PAXFILE" ] || rm -f "$PAXFILE" 2>/dev/null
+
+	# save attrs in .metafile
+	metastore -s
+	[ -s "$METAFILE" ] || rm -f "$METAFILE" 2>/dev/null
+
+	# if didn't create, return
+	#[ -r ".eterpack.special.files.pax" || return
+	return 0
+}
+
+remove_attrs()
+{
+	rm -f "$PAXFILE" 2>/dev/null
+	rm -f "$METAFILE" 2>/dev/null
+	return 0
+}
+
+print_metafiles()
+{
+	[ -s "$PAXFILE" ] && echo "$PAXFILE"
+	[ -s "$METAFILE" ] && echo "$METAFILE"
+}
+
+restore_attrs()
+{
+	# always uses local .metastore for all subdirs
+	[ -s "$PAXFILE" ] && pax -r -f .eterpack.special.files.pax
+	[ -s "$METAFILE" ] && metastore -a
+}
+
+COMMAND=$1
+shift
+
+# epm assure pax
+# epm assure metastore
+
+case $COMMAND in
+	save)
+		save_attrs
+		;;
+	restore)
+		restore_attrs
+		;;
+	metafiles)
+		print_metafiles
+		;;
+	clear)
+		remove_attrs
+		;;
+	-h|--help)
+		echo $DESCR
+		echo "Run as $0 command"
+
+		echo
+		echo "Commands:"
+		echo "	save       save attrs"
+		echo "	restore    restore attrs"
+		echo "	metafiles  print list of created files with metainfo"
+		echo "	clear      remove files with metainfo"
+		;;
+	*)
+		echo "$DESCR" >&2
+		echo "Run with -h or --help for help" >&2
+		exit 1
+	;;
+esac
+
