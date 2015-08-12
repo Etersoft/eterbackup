@@ -41,11 +41,30 @@ execute 'command' after every archive
 force checking file contains, not date only
 
 .SH EXAMPLES
- # eterpack update /var/log/ /tmp/backup
- # eterpack extract /tmp/backup /tmp/someplace
- # eterpack compare /tmp/backup /tmp/someplace
- # eterpack test /tmp/backup
- # eterpack update --execute "echo" /var/log/ /tmp/backup
+.TP
+.B
+# eterpack update /var/log/ /tmp/backup
+.TP
+.B
+# eterpack extract /tmp/backup /tmp/someplace
+.TP
+.B
+# eterpack compare /tmp/backup /tmp/someplace
+.TP
+.B
+# eterpack test /tmp/backup
+.TP
+.B
+# eterpack update --execute "echo" /var/log/ /tmp/backup
+execute command echo tarball_name after every zpaq archive complete
+.TP
+.B
+# eterpack update --depth 2 --exclude subdir /var/log/ /tmp/backup
+pack dir1/subdir1, dir2/subdir2, exclude */subdir
+.TP
+.B
+# eterpack update --depth 2 --exclude /dir/subdir /var/log/ /tmp/backup
+pack dir1/subdir1, dir2/subdir2, exclude /dir/subdir
 
 .SH BUGS
 Please report any bugs to lav@etersoft.ru
