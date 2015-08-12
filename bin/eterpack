@@ -223,37 +223,6 @@ cd - >/dev/null
 
 }
 
-repack_dump()
-{
-fatal "Do not realized jet! zpaq purge does not exists anymore!"
-# Получаем список каталогов, которые мы хотим превратить в файлы
-find "$BACKUPDIR" -depth -maxdepth $DEPTH -mindepth $DEPTH -type d -printf "%P\n" | \
-while read reldir ; do
-
-	bdir="$(basename "$reldir")"
-
-	# TODO: improve
-	if [ "$bdir" = "$EXCLUDEDIR" ] ; then
-		echo
-		echo "Skip excluded $bdir"
-		continue
-	fi
-
-	# TODO: удалённые каталоги будут незамечены и останутся.
-	# Создавать новый слой, копируя со старого, и оставляя тот старыми датами?
-
-	# FIXME: copy dir permissions
-	mkdir -p "$DUMPDIR/$reldir"
-
-	# TODO: тут нужно сделать другой обход каталогов (готовых)
-	# TODO: выделить в отдельную функцию
-	# TODO: check it
-	zpaq purge "$DUMPDIR/$reldir/$bdir.$STN.zpaq" -to "$DUMPDIR/$reldir/../$bdir.$STZ.zpaq" || exit
-	rm -f "$DUMPDIR/$reldir/$bdir.$STN.zpaq"
-	mv "$DUMPDIR/$reldir/../$bdir.$STZ.zpaq" "$DUMPDIR/$reldir/$bdir.$STZ.zpaq"
-done
-}
-
 extract_dump()
 {
 mkdir -p "$DESTDIR" || fatal "Can't create output directory $DESTDIR"
@@ -376,6 +345,7 @@ case $COMMAND in
 		list_files >$DUMPDIR/files.list
 	;;
 	repack)
+		fatal "do not realized"
 		# from
 		BACKUPDIR="$(realpath -e "$1")" || exit
 
