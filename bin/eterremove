@@ -19,7 +19,7 @@
 
 export LANG=C
 
-DESCR="eterremove version 0.1 (c) Etersoft 2015"
+DESCR="eterremove version 0.2 (c) Etersoft 2015"
 
 print_message()
 {
@@ -48,8 +48,9 @@ assert_var()
 
 check_params()
 {
-        [ -n "$DAYSAGO" ] || fatal "Check --help or man page for correct set days ago"
+        [ -n "$DAYSAGO$SIZELIMIT" ] || fatal "Check --help or man page for correct set days ago or size"
         [ "$DAYSAGO" != "0" ] || fatal "Zero days ago is the day. It is not supported"
+        [ "$SIZELIMIT" != "0" ] || fatal "Zero file size is not supported"
         [ -d "$REMOVEDIR" ] || fatal "Working directory does not exists"
 
         if [ -n "$NOTEST" ] ; then
@@ -97,7 +98,7 @@ remove_broken_links()
 
 remove_empty_dirs()
 {
-        assert_var REMOVEDIR DEPTH DAYSAGO
+        assert_var REMOVEDIR DEPTH
         # minutes for empty dir
         local MPAUSE="$1"
 
@@ -108,7 +109,7 @@ remove_empty_dirs()
 
         # clean empty dirs. we use remove_short_paths due rmdir -p will remove all dirs from sequence
         local path
-        find "$REMOVEDIR" -depth $DEPTHMAX -type d -cmin +$MPAUSE ! -name "$EXCLUDEDIR" -print | \
+        find "$REMOVEDIR" -depth $DEPTHMAX -type d -cmin +$MPAUSE -empty ! -name "$EXCLUDEDIR" -print | \
                 remove_short_paths | while read path ; do
                     # TODO: add error policy
                     $CMD_RMDIRP "$path" && [ -n "$NOTEST" ] && echo "removed '$path'"
@@ -120,29 +121,50 @@ remove_empty_dirs()
 
 remove_old_files()
 {
-        assert_var REMOVEDIR DEPTH DAYSAGO
+        assert_var REMOVEDIR DEPTH
+
+        [ -n "$DAYSAGO" ] || return 0
 
         [ -z "$NOTEST" ] && echo "Files older than $DAYSAGO below:"
 
         find "$REMOVEDIR" -depth -mindepth $DEPTH $DEPTHMAX \
                 ! -type d -mtime +"$DAYSAGO" ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMF
-
-        # битые ссылки удаляться в remove_empty_dirs
-
-        remove_empty_dirs 0
 }
+
+remove_old_size_files()
+{
+        assert_var REMOVEDIR DEPTH
+
+        [ -n "$SIZELIMIT" ] || return 0
+
+        [ -z "$NOTEST" ] && echo "Oldest files which overflow capacity in $SIZELIMIT Gb:"
+
+        local SIZEBYTES=$(($SIZELIMIT*1024*1024*1024))
+        local TOTAL=0
+        # print all files sorted by date. skip first files which summary size not more limit
+        find "$REMOVEDIR" -depth -mindepth $DEPTH $DEPTHMAX \
+                ! -type d ! -name "$EXCLUDEDIR" -printf "%C+ %s %p\n" | sort | \
+                while read date size path ; do
+                        TOTAL=$(($TOTAL+$size))
+                        [ "$TOTAL" -lt "$SIZEBYTES" ] && continue
+                        $CMD_RMF "$path"
+                done
+}
+
+
+
 
 remove_old_dirs()
 {
-        assert_var REMOVEDIR DEPTH DAYSAGO
+        assert_var REMOVEDIR DEPTH
+
+        [ -n "$DAYSAGO" ] || return 0
 
         [ -z "$NOTEST" ] && echo "Directories older than $DAYSAGO below:"
 
         # TODO: check status (deferred until correct test)
         find "$REMOVEDIR" -depth -mindepth $DEPTH $DEPTHMAX \
                 -type d -mtime +"$DAYSAGO" ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMRF
-
-        remove_empty_dirs 0
 }
 
 
@@ -152,14 +174,14 @@ shift
 DEPTH=1
 if [ "$1" = "-depth" ] || [ "$1" = "--depth" ] ; then
 	shift
-	DEPTH=$1
+	DEPTH=$(($1))
 	shift
 fi
 
 DEPTHMAX=
 if [ "$1" = "--depthmax" ] ; then
 	shift
-	DEPTHMAX="-maxdepth $1"
+	DEPTHMAX="-maxdepth $(($1))"
 	shift
 fi
 
@@ -174,7 +196,14 @@ fi
 DAYSAGO=
 if [ "$1" = "--days" ] ; then
 	shift
-	DAYSAGO=$1
+	DAYSAGO=$(($1))
+	shift
+fi
+
+SIZELIMIT=
+if [ "$1" = "--size" ] ; then
+	shift
+	SIZELIMIT=$(($1))
 	shift
 fi
 
@@ -198,18 +227,23 @@ case "$COMMAND $SUBCOMMAND" in
 		# from
 		REMOVEDIR=$(realpath -e "$1") || exit
 		check_params
+		[ -n "$SIZELIMIT" ] && fatal "--size are not realized yet (need calc du -b -s for every dir)"
 		remove_old_dirs
+		remove_empty_dirs 0
 	;;
 	"remove files")
 		# from
 		REMOVEDIR=$(realpath -e "$1") || exit
 		check_params
 		remove_old_files
+		remove_old_size_files
+		remove_empty_dirs 0
 	;;
 	"remove empty")
 		# from
 		REMOVEDIR=$(realpath -e "$1") || exit
 		check_params
+		[ -n "$SIZELIMIT" ] && fatal "--size are not allowed for remove empty"
 		remove_empty_dirs 0
 	;;
 	"-h "|"--help ")
@@ -234,7 +268,9 @@ case "$COMMAND $SUBCOMMAND" in
 		echo "	--depthmax N       - set max subdirs level (no range by default)"
 		echo "	--exclude name     - exclude dir 'name' from removing"
 		echo "	--days N           - remove dirs/files older than N days"
+		echo "	--size N           - remove oldest files to fit all in N gigabytes"
 		echo "	--notest           - real removing"
+		echo "(use options only in that order)"
 		#echo "	--force                         force"
 
 		echo

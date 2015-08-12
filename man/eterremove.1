@@ -5,7 +5,7 @@
 .\" This file has been put into the public domain.
 .\" You can do whatever you want with this file.
 .\"
-.TH ETERBACKUP "August 2015" "Version 0.1"
+.TH ETERBACKUP "August 2015" "Version 0.2"
 
 .SH NAME
 eterremove \- removing obsoleted (by date) directories and/or files.
@@ -37,6 +37,10 @@ exclude dir 'name' from removing
 .TP
 .I --days N
 remove dirs/files older than N days
+.TP
+.I --size N
+remove oldest files to fit all in N gigabytes
+
 .TP
 .I --notest
 do real work. Use it after manual checking.
