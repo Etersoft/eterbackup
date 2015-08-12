@@ -14,3 +14,4 @@ See detailed russian description here: http://wiki.etersoft.ru/Eterbackup
 
 Simular projects:
 - https://github.com/flakrat/ghetto-timemachine
+- http://obnam.org

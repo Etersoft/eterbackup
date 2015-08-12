@@ -271,6 +271,9 @@ compare_dump()
 		echo "Compare files from $relfile with $DESTDIR/$reldir ..."
 		# Note! $reldir without quotes therefore it can be empty
 		zpaq list "$DUMPDIR/$relfile" $reldir -to "$DESTDIR/$reldir" -not = $CHECKSUM || exit
+		# TODO: unpack metadata during compare??
+		#if [ -z "$NOATTRIBUTE" ] ; then
+		#fi
 	done || return
 }
 
