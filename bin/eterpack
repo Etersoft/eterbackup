@@ -281,10 +281,15 @@ compare_dump()
 	find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
 	while read relfile ; do
 		reldir="$(dirname "$relfile")"
+		# workaround for root archive
+		if [ "$reldir" = "." ] ; then
+			reldir=""
+		fi
 
 		echo
 		echo "Compare files from $relfile with $DESTDIR/$reldir ..."
-		zpaq list "$DUMPDIR/$relfile" "$reldir" -to "$DESTDIR/$reldir" -not = $CHECKSUM || exit
+		# Note! $reldir without quotes therefore it can be empty
+		zpaq list "$DUMPDIR/$relfile" $reldir -to "$DESTDIR/$reldir" -not = $CHECKSUM || exit
 	done || return
 }
 
