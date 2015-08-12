@@ -46,8 +46,12 @@ create_tree()
 	done
 
 	mkdir -p $TESTDIR/stage1/stage2/stage3/stage4/stage5
+	# hack around zpaq bug with restore empty dirs
+	touch $TESTDIR/stage1/file
+	touch $TESTDIR/stage1/stage2/stage3/stage4/stage5/file
 
 	create_files $TESTDIR
+	ls -R -l $TESTDIR
 }
 
 change_tree()

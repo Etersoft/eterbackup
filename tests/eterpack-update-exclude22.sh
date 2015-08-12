@@ -17,7 +17,7 @@ $ETERPACK extract packed unpacked || fatal "extract failed"
 
 [ -d unpacked/stage1 ] || fatal "missed stage1 dir"
 
-[ -d unpacked/stage1/stage2 ] && fatal "excluded stage2 dir is exists"
+[ -d unpacked/stage1/stage2 ] && fatal "excluded stage1/stage2 dir is exists"
 
 $ETERPACK check packed || fatal "check failed"
 
