@@ -45,6 +45,8 @@ create_tree()
 		create_files $td
 	done
 
+	mkdir -p $TESTDIR/stage1/stage2/stage3/stage4/stage5
+
 	create_files $TESTDIR
 }
 

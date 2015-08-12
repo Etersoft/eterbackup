@@ -183,22 +183,21 @@ update_dir()
 	# if rotate_dir will fail, we will exit via fatal
 	[ -z "$STATUS" ] && rotate_dir
 
+	local RSYNC_OPTS=
+	local CP_OPTS=
 	if [ -n "$MAKELINK" ] ; then
-		set_status "sync"
-		echo "Hardlinking for first time... TODO: what do for next time?"
-		cp -a -l "$BACKUPDIR/" "$ROTATEDIR/$LAST/" || fatal "Can't copy. Try again this command."
-		set_status ""
-		echo "Done."
-		return
+		RSYNC_OPTS="--link-dest $ROTATEDIR/$LAST"
+		CP_OPTS="-l"
 	fi
 
 	set_status "sync"
 	if [ -d "$ROTATEDIR/$LAST" ] ; then
 		echo "Syncing $BACKUPDIR to $ROTATEDIR/$LAST..."
-		rsync -av --partial --progress --inplace --safe-links --hard-links --delete-after "$BACKUPDIR/" "$ROTATEDIR/$LAST/" || fatal "Can't sync. Try again this command."
+		# TODO: a difference in symlink copying between cp and rsync
+		rsync -av --partial --progress $RSYNC_OPTS --inplace --safe-links --hard-links --delete-after "$BACKUPDIR/" "$ROTATEDIR/$LAST/" || fatal "Can't sync. Try again this command."
 	else
 		echo "Copying for first time..."
-		cp -a "$BACKUPDIR/" "$ROTATEDIR/$LAST/" || fatal "Can't copy. Try again this command."
+		cp -a $CP_OPTS "$BACKUPDIR/" "$ROTATEDIR/$LAST/" || fatal "Can't copy. Try again this command."
 	fi
 	set_status ""
 	echo "Done."
@@ -295,7 +294,7 @@ case $COMMAND in
 		echo "	--method date|datetime|number   name convention for rotate dirs (date by default)"
 		echo "	--force                         sync target ever if we do not rotate this time"
 		echo "	--thinner log2                  method for deletion"
-		#echo "	--link                          create hard links instead copying to the timemachine dir"
+		echo "	--link                          create hard links instead copying to the timemachine dir"
 		echo "	--debug"
 	;;
 	*)

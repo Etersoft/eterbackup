@@ -1,3 +1,4 @@
 #!/bin/sh
-checkbashisms -f bin/*
+checkbashisms -f bin/* || exit
+echo "Done."
 #checkbashisms -f Makefile eterbackup.spec

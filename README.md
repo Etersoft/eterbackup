@@ -11,3 +11,6 @@ The goals for eterpack tool:
 The etertimemachine is a tool for backup and/or rotate file tree every time.
 
 See detailed russian description here: http://wiki.etersoft.ru/Eterbackup
+
+Simular projects:
+- https://github.com/flakrat/ghetto-timemachine
