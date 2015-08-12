@@ -11,7 +11,7 @@ create_tree $BASEDIR/sample
 
 cd $BASEDIR || exit 1
 
-sh -x $ETERPACK update --depth 2 --exclude stage2 sample packed || fatal "update failed"
+$ETERPACK update --depth 2 --exclude /stage1/stage2 sample packed || fatal "update failed"
 
 $ETERPACK extract packed unpacked || fatal "extract failed"
 
