@@ -39,6 +39,13 @@ fatal()
 	exit 1
 }
 
+# CHECKME: the same like estrlist has ?
+# Note: used egrep! write '[0-9]+(first|two)', not '[0-9]\+...'
+rhas()
+{
+	echo "$1" | egrep -q -- "$2"
+}
+
 
 list_dirs()
 {
@@ -111,11 +118,12 @@ update_archive()
 	save_attrs
 	cd - >/dev/null
 
-
+	local EXCLUDEARG=
+	[ -n "$EXCLUDEDIR" ] && EXCLUDEARG="-not $bdir/$EXCLUDEDIR"
 	cd "$BACKUPDIR/.." || exit
 	echo
 	echo "Packing $BACKUPDIR ..."
-	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" "$bdir" -to . $CHECKSUM || { cd - ; exit 1 ; }
+	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG || { cd - ; exit 1 ; }
 
 	cd - >/dev/null
 
@@ -135,8 +143,7 @@ while read reldir ; do
 
 	bdir="$(basename "$reldir")"
 
-	# TODO: improve
-	if [ "$reldir" = "$EXCLUDEDIR" ] ; then
+	if [ -n "$EXCLUDEDIR" ] && rhas "$reldir" "^$EXCLUDEDIR" ; then
 		echo "Skip excluded $reldir"
 		continue
 	fi
@@ -189,9 +196,9 @@ if [ -n "$FILES" ] ; then
 	cd "$BACKUPDIR" || exit
 
 	echo
-	echo "Packing files ..."
+	echo "Packing extra files ..."
 	# TODO: use -to for rename internal path
-	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" $FILES $CHECKSUM || { cd - ; return 1 ; }
+	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" $FILES $CHECKSUM -not "$EXCLUDEDIR" || { cd - ; return 1 ; }
 	cd - >/dev/null
 
 	remove_attrs "$BACKUPDIR"
