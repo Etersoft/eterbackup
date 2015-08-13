@@ -330,7 +330,7 @@ if [ "$1" = "--noattribute" ] ; then
 fi
 
 case $COMMAND in
-	update)
+	update|backup)
 		# from
 		BACKUPDIR="$(realpath -e "$1")" || exit
 
@@ -371,7 +371,7 @@ case $COMMAND in
 		echo "Files:"
 		list_files
 	;;
-	extract)
+	extract|restore)
 		DUMPDIR="$(realpath -e "$1")" || exit
 		# source dirname for target by default
 		DESTDIR="$(basename $DUMPDIR)"
@@ -395,15 +395,15 @@ case $COMMAND in
 		#echo "	$ eterbackup repack /path/from /path/to"
 
 		echo
-		echo "Extract backup:"
-		echo "	$ eterbackup extract /path/backup /path/to"
+		echo "Restore backup:"
+		echo "	$ eterbackup restore /path/backup /path/to"
 
 		echo
-		echo "Compare backup:"
+		echo "Compare backup with local files:"
 		echo "	$ eterbackup compare /path/backup /path/to"
 
 		echo
-		echo "Test backup:"
+		echo "Test backup integrity:"
 		echo "	$ eterbackup test /path/backup"
 
 		echo

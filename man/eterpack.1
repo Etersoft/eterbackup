@@ -5,13 +5,16 @@
 .\" This file has been put into the public domain.
 .\" You can do whatever you want with this file.
 .\"
-.TH ETERBACKUP "August 2015" "Version 0.3"
+.TH ETERBACKUP "August 2015" "Version 0.5"
 
 .SH NAME
 eterpack \- packing directory tree to one archive file with journaling archiver zpaq.
 .SH SYNOPSIS
 .B eterpack
-.RI [command] [options] [path,] [path...]
+.RI [command]
+.RI [options]
+.RI [path,]
+.RI [path...]
 .PP
 .br
 .SH DESCRIPTION
@@ -20,24 +23,38 @@ eterpack update scan every directory in the directory and create a archive file 
 The goal is reduce the number of files from many thousands to a few.
 Using journaling archiver zpaq we generate multi file archive (a file per every backup session).
 
+.SH COMMANDS
+.TP
+.B update FROM TO
+Makes backup all files in FROM to TO dir
+.TP
+.B restore BACKUP TO
+Restore all backup files from BACKUP to TO dir
+.TP
+.B test BACKUP
+Check backup integrity
+.TP
+.B compare "BACKUP" "TO"
+Compare backup BACKUP with local files in TO dir
+
 .SH OPTIONS
 .TP
-.I -h
+.B -h
 Display help
 .TP
-.I -V
+.B -V
 Show version and exit
 .TP
-.I --depth N
+.B --depth "N"
 set depth for subdirs (update only)
 .TP
-.I --exclude name
+.B --exclude "name"
 exclude dir 'name' from packing
 .TP
-.I --execute command
+.B --execute "command"
 execute 'command' after every archive
 .TP
-.I --checksum
+.B --checksum
 force checking file contains, not date only
 
 .SH EXAMPLES
