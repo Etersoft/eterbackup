@@ -252,15 +252,15 @@ case "$COMMAND $SUBCOMMAND" in
 
 		echo
 		echo "Remove obsoleted dirs:"
-		echo "	$ eterremove remove dirs /path/to/remove"
+		echo "	$ eterremove remove [options] dirs /path/to/remove"
 
 		echo
 		echo "Remove obsoleted files and empty dirs:"
-		echo "	$ eterremove remove files /path/to/remove"
+		echo "	$ eterremove remove [options] files /path/to/remove"
 
 		echo
 		echo "Remove empty dirs:"
-		echo "	$ eterremove remove empty /path/to/remove"
+		echo "	$ eterremove remove [options] empty /path/to/remove"
 
 		echo
 		echo "Options:"
