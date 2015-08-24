@@ -54,7 +54,7 @@ save_attrs()
 	# TODO: add EXCLUDEDIR
 
 	# save special files
-	find $dir -depth "(" -type b -or -type c -or -type p -or -type l -or -type s ")" -printf "%P\n" | pax -wd -f $PAXFILE || return
+	find $dir -depth "(" -type b -or -type c -or -type p -or -type l ")" -printf "%P\n" | pax -wd -f $PAXFILE || return
 	[ -s "$PAXFILE" ] || rm -f "$PAXFILE" 2>/dev/null
 
 	# save attrs in .metafile
@@ -126,8 +126,8 @@ case $COMMAND in
 
 		echo
 		echo "Commands:"
-		echo "	save       save attrs"
-		echo "	restore    restore attrs"
+		echo "	save       save attrs and spec. files"
+		echo "	restore    restore attrs and spec. files"
 		echo "	compare    show differences between stored and real metadata"
 		echo "	metafiles  print list of created files with metainfo"
 		echo "	clear      remove files with metainfo"
