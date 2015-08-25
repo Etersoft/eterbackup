@@ -143,7 +143,7 @@ remove_old_size_files()
         local TOTAL=0
         # print all files sorted by date. skip first files which summary size not more limit
         find "$REMOVEDIR" -depth -mindepth $DEPTH $DEPTHMAX \
-                ! -type d ! -name "$EXCLUDEDIR" -printf "%C+ %s %p\n" | sort | \
+                -type f ! -name "$EXCLUDEDIR" -printf "%C+ %s %p\n" | sort | \
                 while read date size path ; do
                         TOTAL=$(($TOTAL+$size))
                         [ "$TOTAL" -lt "$SIZEBYTES" ] && continue
