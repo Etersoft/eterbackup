@@ -1,5 +1,5 @@
 Name: eterbackup
-Version: 1.0
+Version: 1.1
 Release: alt1
 
 Summary: Etersoft backup tools for journaling backup
@@ -47,6 +47,10 @@ See detailed russian description here: http://wiki.etersoft.ru/Eterbackup
 #%_sysconfdir/bash_completion.d/erc
 
 %changelog
+* Wed Aug 26 2015 Vitaly Lipatov <lav@altlinux.ru> 1.1-alt1
+- eterattrstore: do not pack sockets
+- eterremove: check only files during by size removing
+
 * Tue Aug 18 2015 Vitaly Lipatov <lav@altlinux.ru> 1.0-alt1
 - pack eterremove command
 - add eterattrstore: separate command for save&restore special files and file attrs
