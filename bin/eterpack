@@ -113,6 +113,7 @@ update_archive()
 	cd "$BACKUPDIR/.." || fatal
 	echo
 	echo "Packing single $BACKUPDIR ..."
+	echo zpaq add "$DUMPDIR/$bdir.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG
 	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG || { cd - ; exit 1 ; }
 	cd - >/dev/null
 
@@ -169,6 +170,7 @@ while read reldir ; do
 	echo
 	echo "Packing $reldir ..."
 	# TODO: use -to for rename internal path
+	echo zpaq add "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir" $CHECKSUM $EXCLUDEARG
 	zpaq add "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir" $CHECKSUM $EXCLUDEARG || { cd - ; exit 1 ; }
 	cd - >/dev/null
 
@@ -210,6 +212,7 @@ if [ -n "$FILES" ] ; then
 	echo
 	echo "Packing extra files ..."
 	# TODO: use -to for rename internal path
+	echo zpaq add "$DUMPDIR/$bdir.$STN.zpaq" $FILES $CHECKSUM $EXCLUDEARG
 	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" $FILES $CHECKSUM $EXCLUDEARG || { cd - ; return 1 ; }
 
 	attrstore clear
