@@ -220,7 +220,7 @@ if [ "$1" = "--force" ] ; then
 fi
 
 SUBCOMMAND="$1"
-shift
+[ -n "$1" ] && shift
 
 case "$COMMAND $SUBCOMMAND" in
 	"remove dirs")
