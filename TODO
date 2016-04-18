@@ -1,5 +1,7 @@
 Проверить с новым metastore
 
+To mark a file as deleted from a zpaq archive: zpaq add archive.zpaq nul: -to file_to_delete
+
 http://wertarbyte.de/tartarus.shtml
 
 http://burp.grke.org/index.html
