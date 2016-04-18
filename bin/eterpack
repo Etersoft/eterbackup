@@ -83,7 +83,7 @@ while read reldir ; do
 done
 }
 
-list_files()
+list_rootfiles()
 {
 	# TODO: exclude? or it is in zpaq?
 	# Список файлов:
@@ -188,7 +188,7 @@ done || return
 # FIXME: broken with paths with spaces
 # TODO: не поддерживается удаление файлов
 # FIXME: длина строки ограничена!
-local FILES=$(list_files)
+local FILES=$(list_rootfiles)
 
 # workaround for correct internal path
 cd "$BACKUPDIR" || exit
@@ -372,7 +372,7 @@ case $COMMAND in
 		update_dump || exit
 		# TODO: это второй прогон. Надо встроить внутрь. Но там будет дописывание в файл
 		list_dirs >$DUMPDIR/dirs.list
-		list_files >$DUMPDIR/files.list
+		list_rootfiles >$DUMPDIR/files.list
 	;;
 	repack)
 		fatal "do not realized"
@@ -396,7 +396,7 @@ case $COMMAND in
 		list_dirs
 		echo
 		echo "Files:"
-		list_files
+		list_rootfiles
 	;;
 	extract|restore)
 		DUMPDIR="$(realpath -e "$1")" || exit
