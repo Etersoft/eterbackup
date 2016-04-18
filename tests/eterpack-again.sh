@@ -11,7 +11,7 @@ ETERPACK=$(pwd)/../bin/eterpack
 
 cd $BASEDIR || exit 1
 
-#$ETERPACK update sample packed || fatal "Error in update"
+$ETERPACK update sample packed || fatal "Error in update"
 
 rm -rf unpacked || fatal
 $ETERPACK extract packed unpacked || fatal "Error in extract"
