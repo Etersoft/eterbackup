@@ -1,6 +1,6 @@
 #!/bin/sh
-# Copyright (C) 2015  Etersoft
-# Copyright (C) 2015  Vitaly Lipatov <lav@etersoft.ru>
+# Copyright (C) 2015-2016  Etersoft
+# Copyright (C) 2015-2016  Vitaly Lipatov <lav@etersoft.ru>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -26,7 +26,7 @@ STZ="000000"
 ST1="000001"
 STN="??????"
 
-DESCR="eterpack version 0.5 (c) Etersoft 2015"
+DESCR="eterpack version 0.6 (c) Etersoft 2015-2016"
 
 print_message()
 {
@@ -310,6 +310,11 @@ test_dump()
 
 	# TODO: add checking by dirs.lists (correct structure)
 }
+
+# zpaq version
+ZPAQVERSION=$(zpaq | head -n1 | sed -e "s|.* v\([0-9]\.[0-9]*\) .*|\1|")
+[ "$ZPAQVERSION" = "7.10" ] || fatal "eterpack 0.6 supports only zpaq v7.10"
+
 
 COMMAND=$1
 shift
