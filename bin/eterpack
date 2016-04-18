@@ -26,7 +26,7 @@ STZ="000000"
 ST1="000001"
 STN="??????"
 
-DESCR="eterbackup version 0.5 (c) Etersoft 2015"
+DESCR="eterpack version 0.5 (c) Etersoft 2015"
 
 print_message()
 {
@@ -408,7 +408,7 @@ case $COMMAND in
 
 		echo
 		echo "Create/Update backup:"
-		echo "	$ eterbackup update /path/from /path/to"
+		echo "	$ eterpack update /path/from /path/to"
 
 		#echo
 		#echo "Repack backup (refresh zpaq files for minimize):"
@@ -416,15 +416,15 @@ case $COMMAND in
 
 		echo
 		echo "Restore backup:"
-		echo "	$ eterbackup restore /path/backup /path/to"
+		echo "	$ eterpack restore /path/backup /path/to"
 
 		echo
 		echo "Compare backup with local files:"
-		echo "	$ eterbackup compare /path/backup /path/to"
+		echo "	$ eterpack compare /path/backup /path/to"
 
 		echo
 		echo "Test backup integrity:"
-		echo "	$ eterbackup test /path/backup"
+		echo "	$ eterpack test /path/backup"
 
 		echo
 		echo "Options:"
