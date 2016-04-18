@@ -114,6 +114,7 @@ update_archive()
 	cd "$BACKUPDIR/.." || fatal
 	echo
 	echo "Packing single $BACKUPDIR ..."
+	mkdir -p "$DUMPDIR/"
 	echo zpaq add "$DUMPDIR/$bdir.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG
 	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG || { cd - ; exit 1 ; }
 	cd - >/dev/null
