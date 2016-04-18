@@ -236,7 +236,6 @@ cd - >/dev/null
 extract_dump()
 {
 local relfile
-local reldir
 mkdir -p "$DESTDIR" || fatal "Can't create output directory $DESTDIR"
 # Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
 find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
@@ -257,7 +256,8 @@ while read relfile ; do
 	zpaq extract "$DUMPDIR/$relfile" -to "$tdir" || exit
 done
 
-[ -n "$reldir" ] || fatal "No internal zpaq archive is found"
+# TODO check it in some manner
+#[ -n "$reldir" ] || fatal "No internal zpaq archive is found"
 
 	if [ -z "$NOATTRIBUTE" ] ; then
 		cd "$DESTDIR" || return
@@ -272,7 +272,6 @@ done
 compare_dump()
 {
 	local relfile
-	local reldir
 	[ -d "$DESTDIR" ] || fatal "Can't open directory $DESTDIR"
 	# Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
 	find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
@@ -285,6 +284,7 @@ compare_dump()
 
 		echo
 		echo "Compare files from $relfile with $DESTDIR/$reldir ..."
+		echo zpaq list "$DUMPDIR/$relfile" $reldir -to "$DESTDIR/$reldir" -not = $CHECKSUM
 		# Note! $reldir without quotes therefore it can be empty
 		zpaq list "$DUMPDIR/$relfile" $reldir -to "$DESTDIR/$reldir" -not = $CHECKSUM || exit
 		# TODO: unpack metadata during compare??
@@ -292,14 +292,14 @@ compare_dump()
 		#fi
 	done || return
 
-	[ -n "$reldir" ] || fatal "No internal zpaq archive is found"
+	# TODO
+	#[ -n "$reldir" ] || fatal "No internal zpaq archive is found"
 
 }
 
 test_dump()
 {
 	local relfile
-	local reldir
 	# Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
 	find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
 	while read relfile ; do
@@ -310,7 +310,8 @@ test_dump()
 		zpaq extract "$DUMPDIR/$relfile" -test || exit
 	done || return
 
-	[ -n "$reldir" ] || fatal "No internal zpaq archive is found"
+	# TODO
+	#[ -n "$reldir" ] || fatal "No internal zpaq archive is found"
 
 	# TODO: add checking by dirs.lists (correct structure)
 }
