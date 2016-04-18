@@ -86,8 +86,12 @@ done
 list_rootfiles()
 {
 	# TODO: exclude? or it is in zpaq?
+	# TODO: not dirs from list_dirs
 	# Список файлов:
 	find $BACKUPDIR -depth -maxdepth $MAXDEPTH -mindepth 1 -type f -printf "%P\n"
+	# Список каталогов, чтобы запаковать пустые каталоги
+	MINDEPTH=1 MAXDEPTH=$MAXPDETH list_dirs
+	#find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth 1 -type d -printf "%P\n"
 }
 
 attrstore()
