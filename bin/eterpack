@@ -64,7 +64,7 @@ list_dirs()
 local reldir
 #echo "List dirs from $BACKUPDIR, with $EXCLUDEDIR exclude."
 # Получаем список каталогов, которые мы хотим превратить в файлы
-find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth $DEPTH -type d -printf "%P\n" | \
+find $BACKUPDIR -depth -maxdepth $MAXDEPTH -mindepth $MINDEPTH -type d -printf "%P\n" | \
 while read reldir ; do
 
 	bdir=$(basename "$reldir")
@@ -87,7 +87,7 @@ list_files()
 {
 	# TODO: exclude? or it is in zpaq?
 	# Список файлов:
-	find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth 1 -type f -printf "%P\n"
+	find $BACKUPDIR -depth -maxdepth $MAXDEPTH -mindepth 1 -type f -printf "%P\n"
 }
 
 attrstore()
@@ -133,7 +133,7 @@ update_dump()
 {
 local reldir
 # Получаем список каталогов, которые мы хотим превратить в файлы
-find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth $DEPTH -type d -printf "%P\n" | \
+find $BACKUPDIR -depth -maxdepth $MAXDEPTH -mindepth $MINDEPTH -type d -printf "%P\n" | \
 while read reldir ; do
 
 	bdir="$(basename "$reldir")"
@@ -319,10 +319,12 @@ ZPAQVERSION=$(zpaq | head -n1 | sed -e "s|.* v\([0-9]\.[0-9]*\) .*|\1|")
 COMMAND=$1
 shift
 
-DEPTH=1
+MINDEPTH=1
+MAXDEPTH=1
 if [ "$1" = "-depth" ] || [ "$1" = "--depth" ] ; then
 	shift
-	DEPTH=$1
+	MINDEPTH=$1
+	MAXDEPTH=$1
 	shift
 fi
 
@@ -362,7 +364,7 @@ case $COMMAND in
 		# to
 		DUMPDIR="$(realpath -m "$2")"
 
-		if [ "$DEPTH" = "0" ] ; then
+		if [ "$MAXDEPTH" = "0" ] ; then
 			update_archive
 			exit
 		fi
