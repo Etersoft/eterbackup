@@ -61,6 +61,7 @@ clean_path()
 
 list_dirs()
 {
+local reldir
 #echo "List dirs from $BACKUPDIR, with $EXCLUDEDIR exclude."
 # Получаем список каталогов, которые мы хотим превратить в файлы
 find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth $DEPTH -type d -printf "%P\n" | \
@@ -129,6 +130,7 @@ update_archive()
 
 update_dump()
 {
+local reldir
 # Получаем список каталогов, которые мы хотим превратить в файлы
 find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth $DEPTH -type d -printf "%P\n" | \
 while read reldir ; do
@@ -228,6 +230,8 @@ cd - >/dev/null
 
 extract_dump()
 {
+local relfile
+local reldir
 mkdir -p "$DESTDIR" || fatal "Can't create output directory $DESTDIR"
 # Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
 find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
@@ -248,6 +252,8 @@ while read relfile ; do
 	zpaq extract "$DUMPDIR/$relfile" -to "$tdir" || exit
 done
 
+[ -n "$reldir" ] || fatal "No internal zpaq archive is found"
+
 	if [ -z "$NOATTRIBUTE" ] ; then
 		cd "$DESTDIR" || return
 		echo
@@ -260,6 +266,8 @@ done
 
 compare_dump()
 {
+	local relfile
+	local reldir
 	[ -d "$DESTDIR" ] || fatal "Can't open directory $DESTDIR"
 	# Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
 	find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
@@ -278,10 +286,15 @@ compare_dump()
 		#if [ -z "$NOATTRIBUTE" ] ; then
 		#fi
 	done || return
+
+	[ -n "$reldir" ] || fatal "No internal zpaq archive is found"
+
 }
 
 test_dump()
 {
+	local relfile
+	local reldir
 	# Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
 	find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
 	while read relfile ; do
@@ -291,6 +304,8 @@ test_dump()
 		echo "Checking $relfile ..."
 		zpaq extract "$DUMPDIR/$relfile" -test || exit
 	done || return
+
+	[ -n "$reldir" ] || fatal "No internal zpaq archive is found"
 
 	# TODO: add checking by dirs.lists (correct structure)
 }
