@@ -60,6 +60,23 @@ create_tree()
 	ls -R -l $TESTDIR
 }
 
+create_datefiles()
+{
+	local TESTDIR="$1"
+	mkdir -p $TESTDIR || exit
+
+	local dt
+	for f in $(seq 1 9) ; do
+		tf="$TESTDIR/tf-$f"
+		truncate -s "$((10-$f))G" $tf || fatal "Can't create $tf"
+		touch -d "$dt" $tf
+		chgrp $GROUP $tf
+		chmod a+rwX $tf
+		dt="$dt yesterday"
+	done
+	ls -R -l -h $TESTDIR
+}
+
 change_tree()
 {
 	find $1 -type f | while read tf ; do
