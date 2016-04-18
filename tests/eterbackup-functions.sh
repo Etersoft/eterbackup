@@ -45,16 +45,12 @@ create_tree()
 		create_files $td
 	done
 
+	# never exclude stage0
+	mkdir -p $TESTDIR/stage0
+	#touch $TESTDIR/stage0/file
+
 	mkdir -p $TESTDIR/stage1/stage2/stage3/stage4/stage5
 	mkdir -p $TESTDIR/stage1/stage22/stage3/stage4/stage5
-	# hack around zpaq bug with restore empty dirs
-	touch $TESTDIR/stage1/file
-	touch $TESTDIR/stage1/stage2/file
-	touch $TESTDIR/stage1/stage22/file
-	touch $TESTDIR/stage1/stage2/stage3/file
-	touch $TESTDIR/stage1/stage22/stage3/file
-	touch $TESTDIR/stage1/stage2/stage3/stage4/stage5/file
-	touch $TESTDIR/stage1/stage22/stage3/stage4/stage5/file
 
 	create_files $TESTDIR
 	ls -R -l $TESTDIR
