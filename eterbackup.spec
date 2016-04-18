@@ -1,5 +1,5 @@
 Name: eterbackup
-Version: 1.2
+Version: 1.3
 Release: alt1
 
 Summary: Etersoft backup tools for journaling backup
@@ -15,7 +15,7 @@ Source: ftp://updates.etersoft.ru/pub/Etersoft/Sisyphus/sources/tarball/%name-%v
 
 BuildArchitectures: noarch
 
-Requires: zpaq >= 705
+Requires: zpaq >= 710
 
 %description
 Etersoft Backup Tools intended for resolve typical backup tasks.
@@ -48,6 +48,11 @@ See detailed russian description here: http://wiki.etersoft.ru/Eterbackup
 #%_sysconfdir/bash_completion.d/erc
 
 %changelog
+* Tue Apr 19 2016 Vitaly Lipatov <lav@altlinux.ru> 1.3-alt1
+- require zpaq 710
+- eterremove: add test for file modified order, fix error (eterbug #10728)
+- eterpack: add warning about only only --exclude is supported
+
 * Fri Apr 01 2016 Vitaly Lipatov <lav@altlinux.ru> 1.2-alt1
 - pack missed eterattrstore
 - eterpack: add echo command
