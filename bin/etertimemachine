@@ -29,6 +29,14 @@ DESCR="etertimemachine version 0.3 (c) Etersoft 2015"
 LAST="last"
 NUMPREFIX=e
 
+# realpath workaround
+if ! which realpath 2>/dev/null >/dev/null ; then
+realpath()
+{
+	readlink -f "$@"
+}
+fi
+
 print_message()
 {
 	local DESC="$1"

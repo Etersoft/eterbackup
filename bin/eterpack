@@ -28,6 +28,14 @@ STN="??????"
 
 DESCR="eterpack version 0.6 (c) Etersoft 2015-2016"
 
+# realpath workaround
+if ! which realpath 2>/dev/null >/dev/null ; then
+realpath()
+{
+	readlink -f "$@"
+}
+fi
+
 print_message()
 {
 	local DESC="$1"
