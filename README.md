@@ -15,6 +15,9 @@ See detailed russian description here: http://wiki.etersoft.ru/Eterbackup
 Read all about zpaq here:
 http://encode.ru/threads/456-zpaq-updates
 
+Bug & features:
+- always use the same source dir name for the same backup
+
 Simular projects:
 - https://borgbackup.github.io/borgbackup/
 - https://attic-backup.org/
