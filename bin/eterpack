@@ -21,6 +21,7 @@ export LANG=C
 PROGDIR=$(dirname $0)
 [ "$PROGDIR" = "." ] && PROGDIR=$(pwd)
 
+BASEPACK=root
 # templates for multi part archive names
 STZ="000000"
 ST1="000001"
@@ -127,8 +128,8 @@ update_archive()
 	echo
 	echo "Packing single $BACKUPDIR ..."
 	mkdir -p "$DUMPDIR/"
-	echo zpaq add "$DUMPDIR/$bdir.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$bdir.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$bdir.$STZ.zpaq" || { cd - ; exit 1 ; }
+	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
+	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; exit 1 ; }
 	cd - >/dev/null
 
 	cd "$BACKUPDIR" || fatal
@@ -136,7 +137,7 @@ update_archive()
 	cd - >/dev/null
 
 	if [ -n "$EXECUTEAFTER" ] ; then
-		$EXECUTEAFTER "$DUMPDIR/$bdir.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
+		$EXECUTEAFTER "$DUMPDIR/$BASEPACK.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
 	fi
 
 }
@@ -227,13 +228,13 @@ if [ -n "$FILES" ] ; then
 	echo
 	echo "Packing extra files ..."
 	# TODO: use -to for rename internal path
-	echo zpaq add "$DUMPDIR/$bdir.$STN.zpaq" $FILES $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$bdir.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$bdir.$STN.zpaq" $FILES $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$bdir.$STZ.zpaq" || { cd - ; return 1 ; }
+	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" $FILES $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
+	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" $FILES $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; return 1 ; }
 
 	attrstore clear
 
 	if [ -n "$EXECUTEAFTER" ] ; then
-		$EXECUTEAFTER "$DUMPDIR/$bdir.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
+		$EXECUTEAFTER "$DUMPDIR/$BASEPACK.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
 	fi
 fi
 
