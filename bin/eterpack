@@ -21,13 +21,15 @@ export LANG=C
 PROGDIR=$(dirname $0)
 [ "$PROGDIR" = "." ] && PROGDIR=$(pwd)
 
+VERSION="0.7"
+NEEDZPAQ="7.15"
 BASEPACK=root
 # templates for multi part archive names
 STZ="000000"
 ST1="000001"
 STN="??????"
 
-DESCR="eterpack version 0.6 (c) Etersoft 2015-2016"
+DESCR="eterpack version $VERSION (c) Etersoft 2015-2017"
 
 # realpath workaround
 if ! which realpath 2>/dev/null >/dev/null ; then
@@ -327,7 +329,7 @@ test_dump()
 
 # zpaq version
 ZPAQVERSION=$(zpaq | head -n1 | sed -e "s|.* v\([0-9]\.[0-9]*\) .*|\1|")
-[ "$ZPAQVERSION" = "7.10" ] || fatal "eterpack 0.6 supports only zpaq v7.10"
+[ "$ZPAQVERSION" = "$NEEDZPAQ" ] || fatal "eterpack $VERSION supports only zpaq v$NEEDZPAQ"
 
 
 COMMAND=$1
