@@ -327,6 +327,15 @@ test_dump()
 	# TODO: add checking by dirs.lists (correct structure)
 }
 
+print_status()
+{
+	if [ -e "$DUMPDIR/.status" ] ; then
+		echo "Archive is incomplete, current status: (cat "$DUMPDIR/.status")"
+		exit 1
+	fi
+	exit 0
+}
+
 # zpaq version
 ZPAQVERSION=$(zpaq | head -n1 | sed -e "s|.* v\([0-9]\.[0-9]*\) .*|\1|")
 [ "$ZPAQVERSION" = "$NEEDZPAQ" ] || fatal "eterpack $VERSION supports only zpaq v$NEEDZPAQ"
@@ -380,8 +389,11 @@ case $COMMAND in
 		# to
 		DUMPDIR="$(realpath -m "$2")"
 
+		echo "in progress" >"$DUMPDIR/.status"
 		if [ "$MAXDEPTH" = "0" ] ; then
 			update_archive
+			rm -f >"$DUMPDIR/.status"
+			# TODO: status
 			exit
 		fi
 
@@ -389,6 +401,8 @@ case $COMMAND in
 		# TODO: это второй прогон. Надо встроить внутрь. Но там будет дописывание в файл
 		list_dirs >$DUMPDIR/dirs.list
 		list_rootfiles >$DUMPDIR/files.list
+		rm -f >"$DUMPDIR/.status"
+		# TODO: status
 	;;
 	repack)
 		fatal "do not realized"
@@ -425,6 +439,10 @@ case $COMMAND in
 		DUMPDIR="$(realpath -e "$1")" || exit
 		test_dump
 	;;
+	status)
+		DUMPDIR="$(realpath -e "$1")" || exit
+		print_status
+	;;
 	-h|--help)
 		echo $DESCR
 		echo "Run with $0 command [options] args"
@@ -448,6 +466,10 @@ case $COMMAND in
 		echo
 		echo "Test backup integrity:"
 		echo "	$ eterpack test /path/backup"
+
+		echo
+		echo "Print backup status:"
+		echo "	$ eterpack status /path/backup"
 
 		echo
 		echo "Options:"
