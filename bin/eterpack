@@ -21,7 +21,7 @@ export LANG=C
 PROGDIR=$(dirname $0)
 [ "$PROGDIR" = "." ] && PROGDIR=$(pwd)
 
-VERSION="0.7"
+VERSION="0.8"
 NEEDZPAQ="7.15"
 BASEPACK=root
 # templates for multi part archive names
