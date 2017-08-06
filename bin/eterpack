@@ -101,8 +101,8 @@ list_rootfiles()
 	# Список файлов:
 	find $BACKUPDIR -depth -maxdepth $MAXDEPTH -mindepth 1 -type f -printf "%P\n"
 	# Список каталогов, чтобы запаковать пустые каталоги
-	MINDEPTH=1 MAXDEPTH=$MAXPDETH list_dirs
-	#find $BACKUPDIR -depth -maxdepth $DEPTH -mindepth 1 -type d -printf "%P\n"
+	# тут проблема: там могут быть ненужные вложенные каталоги
+	#MINDEPTH=1 MAXDEPTH=$MAXDEPTH list_dirs
 }
 
 attrstore()
@@ -217,14 +217,18 @@ fi
 
 if [ -n "$FILES" ] ; then
 
-	bdir="$(basename "$BACKUPDIR")"
+	#bdir="$(basename "$BACKUPDIR")"
 
 	# FIXME: copy dir permissions
 	mkdir -p "$DUMPDIR"
 
 	local EXCLUDEARG=
-	if [ -n "$EXCLUDEDIR" ] && rhas "$EXCLUDEDIR" "^/" ; then
-		EXCLUDEARG="-not $(clean_path "$EXCLUDEDIR")"
+	if [ -n "$EXCLUDEDIR" ] ; then
+		if rhas "$EXCLUDEDIR" "^/" ; then
+			EXCLUDEARG="-not $(clean_path "$EXCLUDEDIR")"
+		#else
+		#	EXCLUDEARG="-not $(clean_path "$EXCLUDEDIR")"
+		fi
 	fi
 
 	echo
@@ -389,7 +393,10 @@ case $COMMAND in
 		# to
 		DUMPDIR="$(realpath -m "$2")"
 
+		# Note: without -p, do not create full path in suddenly place
+		[ -d "$DUMPDIR" ] || mkdir "$DUMPDIR" || exit
 		echo "in progress" >"$DUMPDIR/.status"
+
 		if [ "$MAXDEPTH" = "0" ] ; then
 			update_archive
 			rm -f >"$DUMPDIR/.status"
@@ -399,8 +406,8 @@ case $COMMAND in
 
 		update_dump || exit
 		# TODO: это второй прогон. Надо встроить внутрь. Но там будет дописывание в файл
-		list_dirs >$DUMPDIR/dirs.list
-		list_rootfiles >$DUMPDIR/files.list
+		list_dirs >"$DUMPDIR/dirs.list"
+		list_rootfiles >"$DUMPDIR/files.list"
 		rm -f >"$DUMPDIR/.status"
 		# TODO: status
 	;;
