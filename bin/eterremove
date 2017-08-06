@@ -251,6 +251,7 @@ case "$COMMAND $SUBCOMMAND" in
 	"remove empty")
 		# from
 		REMOVEDIR=$(realpath -e "$1") || exit
+		# TODO:
 		check_params
 		[ -n "$SIZELIMIT" ] && fatal "--size are not allowed for remove empty"
 		remove_empty_dirs 0
