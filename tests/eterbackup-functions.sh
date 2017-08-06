@@ -56,6 +56,23 @@ create_tree()
 	ls -R -l $TESTDIR
 }
 
+create_spaces_tree()
+{
+	local TESTDIR="$1"
+	mkdir -p $TESTDIR || exit
+	mkdir -p "$TESTDIR/space1 first"
+	mkdir -p "$TESTDIR/space1 second"
+	touch "$TESTDIR/space1 second/file1"
+	touch "$TESTDIR/space1 second/file1 space1"
+	touch "$TESTDIR/space1 second/file1 space2"
+	touch "$TESTDIR/space1 second/file1 пробел"
+	mkdir -p "$TESTDIR/пробел1 second"
+	touch "$TESTDIR/пробел1 second/file1 пробел"
+	touch "$TESTDIR/file3 пробел"
+	ls -R -l $TESTDIR
+}
+
+
 create_datefiles()
 {
 	local TESTDIR="$1"
