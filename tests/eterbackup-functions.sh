@@ -72,6 +72,26 @@ create_spaces_tree()
 	ls -R -l $TESTDIR
 }
 
+create_symbols_tree()
+{
+	local TESTDIR="$1"
+	mkdir -p $TESTDIR || exit
+	mkdir -p "$TESTDIR/space1!fi\"rst"
+	mkdir -p "$TESTDIR/space1\$sec'ond"
+	touch "$TESTDIR/space1!fi\"rst'/file5"
+	touch "$TESTDIR/space1\$sec'ond/file1"
+	touch "$TESTDIR/space1\$sec'ond/file1 space1"
+	touch "$TESTDIR/space1\$sec'ond/file1 space2"
+	touch "$TESTDIR/space1\$sec'ond/file1 пробел"
+	mkdir -p "$TESTDIR/\"пробел'1-second"
+	touch "$TESTDIR/\"пробел'1-second/file1 пробел"
+	touch "$TESTDIR/file3!пробел"
+	touch "$TESTDIR/file3\$пр'обе'л"
+	touch "$TESTDIR/file3-пр\"об'ел"
+	touch "$TESTDIR/file3 -d пр\"об\"ел"
+	ls -R -l $TESTDIR
+}
+
 
 create_datefiles()
 {
