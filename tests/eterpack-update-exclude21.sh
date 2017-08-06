@@ -25,6 +25,7 @@ cp -al sample sample-mod
 rm -rf sample-mod/stage1/stage2
 
 $ETERPACK compare packed sample-mod || fatal "comparison is failed"
+$ETERPACK compare --checksum packed sample-mod || fatal "comparison with checksum is failed"
 
 diff_dirs unpacked sample-mod
 

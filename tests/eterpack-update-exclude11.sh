@@ -15,6 +15,8 @@ $ETERPACK update --depth 1 --exclude stage1 sample packed || fatal "update faile
 
 $ETERPACK extract packed unpacked || fatal "extract failed"
 
+[ -d unpacked/stage0 ] || fatal "unpacked stage0 is not exists"
+
 [ -d unpacked/stage1 ] && fatal "excluded stage1 dir is exists"
 
 $ETERPACK check packed || fatal "check failed"

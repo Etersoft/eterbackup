@@ -3,11 +3,11 @@
 BASEDIR=/tmp/eterbackup-TD
 ETERPACK=$(pwd)/../bin/eterpack
 
-#rm -rf $BASEDIR
+rm -rf $BASEDIR
 
 . ./eterbackup-functions.sh
 
-#create_tree $BASEDIR/sample
+create_tree $BASEDIR/sample
 
 cd $BASEDIR || exit 1
 
