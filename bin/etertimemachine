@@ -295,7 +295,7 @@ case $COMMAND in
 
 		echo
 		echo "Delete:"
-		echo "	$ etertimemachine delete --method date --thinner /path/to"
+		echo "	$ etertimemachine delete --method date --thinner log2 /path/to"
 
 		echo
 		echo "Options:"
