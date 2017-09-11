@@ -38,6 +38,8 @@ create_files()
 create_tree()
 {
 	local TESTDIR="$1"
+	# set from env
+	#local SKIPEMPTY="$2"
 	mkdir -p $TESTDIR || exit
 	for i in $(seq 1 10) ; do
 		td=$(mktemp -d $TESTDIR/td-XXXX)
@@ -45,12 +47,14 @@ create_tree()
 		create_files $td
 	done
 
-	# never exclude stage0
-	mkdir -p $TESTDIR/stage0
-	#touch $TESTDIR/stage0/file
+	if [ -n "$SKIPEMPTY" ] ; then
+		# never exclude stage0
+		mkdir -p $TESTDIR/stage0
+		#touch $TESTDIR/stage0/file
 
-	mkdir -p $TESTDIR/stage1/stage2/stage3/stage4/stage5
-	mkdir -p $TESTDIR/stage1/stage22/stage3/stage4/stage5
+		mkdir -p $TESTDIR/stage1/stage2/stage3/stage4/stage5
+		mkdir -p $TESTDIR/stage1/stage22/stage3/stage4/stage5
+	fi
 
 	create_files $TESTDIR
 	ls -R -l $TESTDIR

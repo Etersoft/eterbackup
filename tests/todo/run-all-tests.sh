@@ -1,8 +1,4 @@
 #!/bin/sh
-
-# TODO:
-#export SKIPEMPTY=skipempty
-
 for i in *.sh ; do
 	[ "$i" = $(basename $0) ] && continue
 	[ "$i" = "eterbackup-functions.sh" ] && continue
