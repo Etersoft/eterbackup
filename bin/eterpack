@@ -179,9 +179,6 @@ while read reldir ; do
 	# TODO: удалённые каталоги будут незамечены и останутся.
 	# Создавать новый слой, копируя со старого, и оставляя тот старыми датами?
 
-	# FIXME: copy dir permissions
-	mkdir -p "$DUMPDIR/$reldir"
-
 	# zpaq does not support symlink, so workaround it
 	if [ -n "$FOLLOWLINKS" ] ; then
 		babsdir="$(basename "$(realpath "$BACKUPDIR/$reldir")")"
@@ -195,15 +192,27 @@ while read reldir ; do
 	cd "$babsreldir" || exit
 
 
+	if [ -n "$SINGLEARCHIVE" ] ; then
+		local archname="$DUMPDIR/$BASEPACK.$STN.zpaq"
+		local zarchname="$DUMPDIR/$BASEPACK.$STZ.zpaq"
+	else
+		# FIXME: copy dir permissions
+		mkdir -p "$DUMPDIR/$reldir"
+
+		local archname="$DUMPDIR/$reldir/$bdir.$STN.zpaq"
+		local zarchname="$DUMPDIR/$reldir/$bdir.$STZ.zpaq"
+	fi
+
 	echo
-	echo "Packing $reldir ..."
+	echo "Packing $reldir to $archname ..."
+
 	# TODO: use -to for rename internal path
-	echo zpaq add "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$babsdir" $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$reldir/$bdir.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$babsdir" $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$reldir/$bdir.$STZ.zpaq" || { cd - ; exit 1 ; }
+	echo zpaq add "$archname" "$babsdir" $CHECKSUM $EXCLUDEARG -index "$zarchname"
+	zpaq add "$archname" "$babsdir" $CHECKSUM $EXCLUDEARG -index "$zarchname" || { cd - ; exit 1 ; }
 	cd - >/dev/null
 
 	if [ -n "$EXECUTEAFTER" ] ; then
-		$EXECUTEAFTER "$DUMPDIR/$reldir/$bdir.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
+		$EXECUTEAFTER "$archname" || fatal "Executed command $EXECUTEAFTER failed"
 	fi
 done || return
 
@@ -396,6 +405,12 @@ if [ "$1" = "--noattribute" ] ; then
 	NOATTRIBUTE=1
 fi
 
+SINGLEARCHIVE=
+if [ "$1" = "--singlearchive" ] ; then
+	shift
+	SINGLEARCHIVE="1"
+fi
+
 FOLLOWLINKS=
 if [ "$1" = "--followlinks" ] ; then
 	shift
@@ -502,6 +517,7 @@ case $COMMAND in
 		echo "	--execute command  - execute 'command' after every archive"
 		echo "	--checksum         - force checking file contains, not date only"
 		echo "	--noattribute      - do not extra save owner/group, permissions and special files"
+		echo "	--singlearchive    - pack all subdirs to one package"
 		echo "	--followlinks      - follow links for primary dirs"
 		echo "(use options strict in this order)"
 	;;
