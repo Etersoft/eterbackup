@@ -113,6 +113,7 @@ get_mark()
 	esac
 }
 
+# TODO: move to eterremove
 thin_log2rotate_dir()
 {
 	# definitely we need $LAST is exists

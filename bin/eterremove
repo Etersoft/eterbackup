@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (C) 2007, 2015  Etersoft
+# Copyright (C) 2007, 2015, 2018  Etersoft
 # Copyright (C) 2007  Pavel Vainerman <pv@etersoft.ru>
 # Copyright (C) 2015  Vitaly Lipatov <lav@etersoft.ru>
 #
@@ -19,7 +19,7 @@
 
 export LANG=C
 
-DESCR="eterremove version 0.2 (c) Etersoft 2015"
+DESCR="eterremove version 0.3 (c) Etersoft 2015, 2018"
 
 # realpath workaround
 if ! which realpath 2>/dev/null >/dev/null ; then
@@ -272,6 +272,9 @@ case "$COMMAND $SUBCOMMAND" in
 		echo "Remove empty dirs:"
 		echo "	$ eterremove remove [options] empty /path/to/remove"
 
+		echo
+		echo "Make dir date list less dense:"
+		echo '	$ eterremove rarefy [options]
 		echo
 		echo "Options:"
 		echo "	--depth N          - set work subdirs level (1 by default)"

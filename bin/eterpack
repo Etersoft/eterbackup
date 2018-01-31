@@ -1,6 +1,6 @@
-#!/bin/sh
-# Copyright (C) 2015-2016  Etersoft
-# Copyright (C) 2015-2016  Vitaly Lipatov <lav@etersoft.ru>
+#!/bin/bash
+# Copyright (C) 2015-2018  Etersoft
+# Copyright (C) 2015-2018  Vitaly Lipatov <lav@etersoft.ru>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -29,7 +29,7 @@ STZ="000000"
 ST1="000001"
 STN="??????"
 
-DESCR="eterpack version $VERSION (c) Etersoft 2015-2017"
+DESCR="eterpack version $VERSION (c) Etersoft 2015-2018"
 
 # realpath workaround
 if ! which realpath 2>/dev/null >/dev/null ; then
@@ -57,7 +57,7 @@ fatal()
 # Note: used egrep! write '[0-9]+(first|two)', not '[0-9]\+...'
 rhas()
 {
-	echo "$1" | egrep -q -- "$2"
+	echo "$1" | grep -E -q -- "$2"
 }
 
 # //path//path1 -> path/path1
@@ -203,7 +203,7 @@ done || return
 # FIXME: broken with paths with spaces
 # TODO: не поддерживается удаление файлов
 # FIXME: длина строки ограничена!
-local FILES=$(list_rootfiles)
+local FILES="$(list_rootfiles)"
 
 # workaround for correct internal path
 cd "$BACKUPDIR" || exit
@@ -334,9 +334,10 @@ test_dump()
 print_status()
 {
 	if [ -e "$DUMPDIR/.status" ] ; then
-		echo "Archive is incomplete, current status: (cat "$DUMPDIR/.status")"
+		echo "Archive is incomplete, current status: $(cat "$DUMPDIR/.status")"
 		exit 1
 	fi
+	echo "Archive is completed"
 	exit 0
 }
 
@@ -346,7 +347,7 @@ ZPAQVERSION=$(zpaq | head -n1 | sed -e "s|.* v\([0-9]\.[0-9]*\) .*|\1|")
 
 
 COMMAND=$1
-shift
+[ -n "$COMMAND" ] && shift
 
 MINDEPTH=1
 MAXDEPTH=1
@@ -399,7 +400,7 @@ case $COMMAND in
 
 		if [ "$MAXDEPTH" = "0" ] ; then
 			update_archive
-			rm -f >"$DUMPDIR/.status"
+			rm -f "$DUMPDIR/.status"
 			# TODO: status
 			exit
 		fi
@@ -408,7 +409,7 @@ case $COMMAND in
 		# TODO: это второй прогон. Надо встроить внутрь. Но там будет дописывание в файл
 		list_dirs >"$DUMPDIR/dirs.list"
 		list_rootfiles >"$DUMPDIR/files.list"
-		rm -f >"$DUMPDIR/.status"
+		rm -f "$DUMPDIR/.status"
 		# TODO: status
 	;;
 	repack)
