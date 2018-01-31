@@ -75,7 +75,7 @@ list_dirs()
 local reldir
 #echo "List dirs from $BACKUPDIR, with $EXCLUDEDIR exclude."
 # Получаем список каталогов, которые мы хотим превратить в файлы
-find $BACKUPDIR -depth -maxdepth $MAXDEPTH -mindepth $MINDEPTH -type d -printf "%P\n" | \
+find $FOLLOWLINKS $BACKUPDIR -depth -maxdepth $MAXDEPTH -mindepth $MINDEPTH -type d -printf "%P\n" | \
 while read reldir ; do
 
 	bdir=$(basename "$reldir")
@@ -148,7 +148,7 @@ update_dump()
 {
 local reldir
 # Получаем список каталогов, которые мы хотим превратить в файлы
-find $BACKUPDIR -depth -maxdepth $MAXDEPTH -mindepth $MINDEPTH -type d -printf "%P\n" | \
+find $FOLLOWLINKS $BACKUPDIR -depth -maxdepth $MAXDEPTH -mindepth $MINDEPTH -type d -printf "%P\n" | \
 while read reldir ; do
 
 	bdir="$(basename "$reldir")"
@@ -165,7 +165,7 @@ while read reldir ; do
 				continue
 			fi
 			if rhas "$EXCLUDEDIR" "^/$reldir/" ; then
-				EXCLUDEARG="-not $bdir/$(clean_path $(echo "$EXCLUDEDIR" | sed -e "s|^/$reldir||g"))"
+				EXCLUDEARG="-not $bdir/$(clean_path "$(echo "$EXCLUDEDIR" | sed -e "s|^/$reldir||g")")"
 				echo "Use exclude rule: $EXCLUDEARG"
 			fi
 		else
@@ -182,14 +182,24 @@ while read reldir ; do
 	# FIXME: copy dir permissions
 	mkdir -p "$DUMPDIR/$reldir"
 
+	# zpaq does not support symlink, so workaround it
+	if [ -n "$FOLLOWLINKS" ] ; then
+		babsdir="$(basename "$(realpath "$BACKUPDIR/$reldir")")"
+		babsreldir="$(realpath "$BACKUPDIR/$reldir/..")"
+	else
+		babsdir="$bdir"
+		babsreldir="$BACKUPDIR/$reldir/.."
+	fi
+
 	# workaround for correct internal path
-	cd "$BACKUPDIR/$reldir/.." || exit
+	cd "$babsreldir" || exit
+
 
 	echo
 	echo "Packing $reldir ..."
 	# TODO: use -to for rename internal path
-	echo zpaq add "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir" $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$reldir/$bdir.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$bdir" $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$reldir/$bdir.$STZ.zpaq" || { cd - ; exit 1 ; }
+	echo zpaq add "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$babsdir" $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$reldir/$bdir.$STZ.zpaq"
+	zpaq add "$DUMPDIR/$reldir/$bdir.$STN.zpaq" "$babsdir" $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$reldir/$bdir.$STZ.zpaq" || { cd - ; exit 1 ; }
 	cd - >/dev/null
 
 	if [ -n "$EXECUTEAFTER" ] ; then
@@ -386,6 +396,12 @@ if [ "$1" = "--noattribute" ] ; then
 	NOATTRIBUTE=1
 fi
 
+FOLLOWLINKS=
+if [ "$1" = "--followlinks" ] ; then
+	shift
+	FOLLOWLINKS="-L"
+fi
+
 case $COMMAND in
 	update|backup)
 		# from
@@ -486,6 +502,7 @@ case $COMMAND in
 		echo "	--execute command  - execute 'command' after every archive"
 		echo "	--checksum         - force checking file contains, not date only"
 		echo "	--noattribute      - do not extra save owner/group, permissions and special files"
+		echo "	--followlinks      - follow links for primary dirs"
 		echo "(use options strict in this order)"
 	;;
 	*)
