@@ -274,7 +274,7 @@ case "$COMMAND $SUBCOMMAND" in
 
 		echo
 		echo "Make dir date list less dense:"
-		echo '	$ eterremove rarefy [options]
+		echo "	$ eterremove rarefy [options]"
 		echo
 		echo "Options:"
 		echo "	--depth N          - set work subdirs level (1 by default)"
