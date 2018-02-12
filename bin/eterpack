@@ -131,7 +131,7 @@ update_archive()
 	echo "Packing single $BACKUPDIR ..."
 	mkdir -p "$DUMPDIR/"
 	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; exit 1 ; }
+	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG $PASSWORDARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; exit 1 ; }
 	cd - >/dev/null
 
 	cd "$BACKUPDIR" || fatal
@@ -208,7 +208,7 @@ while read reldir ; do
 
 	# TODO: use -to for rename internal path
 	echo zpaq add "$archname" "$babsdir" $CHECKSUM $EXCLUDEARG -index "$zarchname"
-	zpaq add "$archname" "$babsdir" $CHECKSUM $EXCLUDEARG -index "$zarchname" || { cd - ; exit 1 ; }
+	zpaq add "$archname" "$babsdir" $CHECKSUM $EXCLUDEARG $PASSWORDARG -index "$zarchname" || { cd - ; exit 1 ; }
 	cd - >/dev/null
 
 	if [ -n "$EXECUTEAFTER" ] ; then
@@ -254,7 +254,7 @@ if [ -n "$FILES" ] ; then
 	echo "Packing extra files ..."
 	# TODO: use -to for rename internal path
 	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" $FILES $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" $FILES $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; return 1 ; }
+	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" $FILES $CHECKSUM $EXCLUDEARG $PASSWORDARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; return 1 ; }
 
 	attrstore clear
 
@@ -287,7 +287,7 @@ while read relfile ; do
 
 	echo
 	echo "Extract files from $relfile to $tdir ..."
-	zpaq extract "$DUMPDIR/$relfile" -to "$tdir" || exit
+	zpaq extract "$DUMPDIR/$relfile" -to "$tdir" $PASSWORDARG || exit
 done
 
 # TODO check it in some manner
@@ -320,7 +320,7 @@ compare_dump()
 		echo "Compare files from $relfile with $DESTDIR/$reldir ..."
 		echo zpaq list "$DUMPDIR/$relfile" $reldir -to "$DESTDIR/$reldir" -not = $CHECKSUM
 		# Note! $reldir without quotes therefore it can be empty
-		zpaq list "$DUMPDIR/$relfile" $reldir -to "$DESTDIR/$reldir" -not = $CHECKSUM || exit
+		zpaq list "$DUMPDIR/$relfile" $reldir -to "$DESTDIR/$reldir" $PASSWORDARG -not = $CHECKSUM || exit
 		# TODO: unpack metadata during compare??
 		#if [ -z "$NOATTRIBUTE" ] ; then
 		#fi
@@ -341,7 +341,7 @@ test_dump()
 
 		echo
 		echo "Checking $relfile ..."
-		zpaq extract "$DUMPDIR/$relfile" -test || exit
+		zpaq extract "$DUMPDIR/$relfile" -test $PASSWORDARG || exit
 	done || return
 
 	# TODO
@@ -399,6 +399,13 @@ if [ "$1" = "--checksum" ] ; then
 	CHECKSUM="-force"
 fi
 
+PASSWORDARG=''
+if [ "$1" = "--password" ] ; then
+	shift
+	PASSWORDARG="-key $1"
+	shift
+fi
+
 NOATTRIBUTE=
 if [ "$1" = "--noattribute" ] ; then
 	shift
@@ -428,6 +435,7 @@ case $COMMAND in
 		# Note: without -p, do not create full path in suddenly place
 		[ -d "$DUMPDIR" ] || mkdir "$DUMPDIR" || exit
 		echo "in progress" >"$DUMPDIR/.status"
+		[ -n "PASSWORDARG" ] && echo "encrypted" >"$DUMPDIR/.encrypted"
 
 		if [ "$MAXDEPTH" = "0" ] ; then
 			update_archive
@@ -516,6 +524,7 @@ case $COMMAND in
 		echo "	--exclude name     - exclude dir 'name' from packing (full path or level dir name)"
 		echo "	--execute command  - execute 'command' after every archive"
 		echo "	--checksum         - force checking file contains, not date only"
+		echo "	--password         - use password for encryption/decryption"
 		echo "	--noattribute      - do not extra save owner/group, permissions and special files"
 		echo "	--singlearchive    - pack all subdirs to one package"
 		echo "	--followlinks      - follow links for primary dirs"
