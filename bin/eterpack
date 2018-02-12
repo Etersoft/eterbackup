@@ -365,64 +365,72 @@ ZPAQVERSION=$(zpaq | head -n1 | sed -e "s|.* v\([0-9]\.[0-9]*\) .*|\1|")
 [ "$ZPAQVERSION" = "$NEEDZPAQ" ] || fatal "eterpack $VERSION supports only zpaq v$NEEDZPAQ"
 
 
-COMMAND=$1
+COMMAND="$1"
 [ -n "$COMMAND" ] && shift
 
 MINDEPTH=1
 MAXDEPTH=1
-if [ "$1" = "-depth" ] || [ "$1" = "--depth" ] ; then
-	shift
-	MINDEPTH=$1
-	MAXDEPTH=$1
-	shift
-fi
-
-# TODO: allow repeatable --exclude
-EXCLUDEDIR=
-if [ "$1" = "--exclude" ] ; then
-	shift
-	EXCLUDEDIR="$1"
-	shift
-	[ "$1" = "--exclude" ] && fatal "TODO: A few --exclude not yet supported"
-fi
-
-EXECUTEAFTER=
-if [ "$1" = "--execute" ] ; then
-	shift
-	EXECUTEAFTER="$1"
-	shift
-fi
-
-CHECKSUM=
-if [ "$1" = "--checksum" ] ; then
-	shift
-	CHECKSUM="-force"
-fi
-
+EXCLUDEDIR=''
+EXECUTEAFTER=''
+CHECKSUM=''
 PASSWORDARG=''
-if [ "$1" = "--password" ] ; then
-	shift
-	PASSWORDARG="-key $1"
-	shift
-fi
+NOATTRIBUTE=''
+SINGLEARCHIVE=''
+FOLLOWLINKS=''
 
-NOATTRIBUTE=
-if [ "$1" = "--noattribute" ] ; then
-	shift
-	NOATTRIBUTE=1
-fi
+while true ; do
+	case "$1" in
+	--depth)
+		shift
+		MINDEPTH=$1
+		MAXDEPTH=$1
+		shift
+		;;
 
-SINGLEARCHIVE=
-if [ "$1" = "--singlearchive" ] ; then
-	shift
-	SINGLEARCHIVE="1"
-fi
+	--exclude)
+		shift
+		# TODO: allow repeatable --exclude
+		[ -n "$EXCLUDEDIR" ] && fatal "TODO: A few --exclude not yet supported"
+		EXCLUDEDIR="$1"
+		shift
+		;;
 
-FOLLOWLINKS=
-if [ "$1" = "--followlinks" ] ; then
-	shift
-	FOLLOWLINKS="-L"
-fi
+	--execute)
+		shift
+		EXECUTEAFTER="$1"
+		shift
+		;;
+
+	--checksum)
+		shift
+		CHECKSUM="-force"
+		;;
+
+	--password)
+		shift
+		PASSWORDARG="-key $1"
+		shift
+		;;
+
+	--noattribute|--noattributes)
+		shift
+		NOATTRIBUTE=1
+		;;
+
+	--singlearchive)
+		shift
+		SINGLEARCHIVE="1"
+		;;
+
+	--followlinks)
+		shift
+		FOLLOWLINKS="-L"
+		;;
+	*)
+		break
+		;;
+esac
+done
 
 case $COMMAND in
 	update|backup)
@@ -528,7 +536,6 @@ case $COMMAND in
 		echo "	--noattribute      - do not extra save owner/group, permissions and special files"
 		echo "	--singlearchive    - pack all subdirs to one package"
 		echo "	--followlinks      - follow links for primary dirs"
-		echo "(use options strict in this order)"
 	;;
 	*)
 		echo "$DESCR" >&2
