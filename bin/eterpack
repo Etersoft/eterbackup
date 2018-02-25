@@ -53,6 +53,29 @@ fatal()
 	exit 1
 }
 
+info()
+{
+	echo "$*"
+}
+
+fatal_status()
+{
+	if [ -s "$DUMPDIR/.status" ] ; then
+		echo "$1" > "$DUMPDIR/.status"
+	fi
+	if [ -n "$2" ] ; then
+		echo "$2" > "$DUMPDIR/.status_ext"
+	fi
+	fatal "Exited with status $1. $2"
+}
+
+done_status()
+{
+	rm -f "$DUMPDIR/.status"
+	rm -f "$DUMPDIR/.status_ext"
+}
+
+
 # CHECKME: the same like estrlist has ?
 # Note: used egrep! write '[0-9]+(first|two)', not '[0-9]\+...'
 rhas()
@@ -206,9 +229,30 @@ while read reldir ; do
 	echo
 	echo "Packing $reldir to $archname ..."
 
+	# TODO: improve all that tmpoutput things
+	local tmpoutput="$(mktemp)"
 	# TODO: use -to for rename internal path
 	echo zpaq add "$archname" "$babsdir" $CHECKSUM $EXCLUDEARG -index "$zarchname"
-	zpaq add "$archname" "$babsdir" $CHECKSUM $EXCLUDEARG $PASSWORDARG -index "$zarchname" || { cd - ; exit 1 ; }
+	(zpaq add "$archname" "$babsdir" $CHECKSUM $EXCLUDEARG $PASSWORDARG -index "$zarchname" 2>&1 && touch $tmpoutput.ok) | tee $tmpoutput
+	local res=0
+	[ -r "$tmpoutput.ok" ] || res=1
+	if [ "$res" = 1 ] ; then
+		local errfile=''
+		if grep -q "zpaq: archive exists" $tmpoutput ; then
+			errfile="$(grep "zpaq: archive exists" $tmpoutput | sed -e 's|^\(/.*\.zpaq\).*|\1|g')"
+			mv -v $errfile $errfile.broken || fatal "can't move"
+			fatal_status "recoverable error" "Run again to continue"
+		fi
+		if grep -q "zpaq: Skipping block" $tmpoutput ; then
+			errfile="$(grep "zpaq: Skipping block" $tmpoutput | sed -e 's|^\(/.*\.zpaq\).*|\1|g')"
+			info "Ignore error with $errfile ..."
+			res=0
+		fi
+	fi
+	# TODO: remove in fatal
+	rm -f $tmpoutput $tmpoutput.ok
+	[ "$res" = "0" ] || fatal_status "unrecoverable error" "Error during packaging to $archname"
+
 	cd - >/dev/null
 
 	if [ -n "$EXECUTEAFTER" ] ; then
@@ -442,12 +486,20 @@ case $COMMAND in
 
 		# Note: without -p, do not create full path in suddenly place
 		[ -d "$DUMPDIR" ] || mkdir "$DUMPDIR" || exit
+
+		info "eterpack: packing to $DUMPDIR ..."
+
+		if [ -s "$DUMPDIR/.status" ] ; then
+			info "Previous interrupted task had status $(cat "$DUMPDIR/.status")"
+			#"
+		fi
+
 		echo "in progress" >"$DUMPDIR/.status"
 		[ -n "PASSWORDARG" ] && echo "encrypted" >"$DUMPDIR/.encrypted"
 
 		if [ "$MAXDEPTH" = "0" ] ; then
 			update_archive
-			rm -f "$DUMPDIR/.status"
+			done_status
 			# TODO: status
 			exit
 		fi
@@ -456,7 +508,7 @@ case $COMMAND in
 		# TODO: это второй прогон. Надо встроить внутрь. Но там будет дописывание в файл
 		list_dirs >"$DUMPDIR/dirs.list"
 		list_rootfiles >"$DUMPDIR/files.list"
-		rm -f "$DUMPDIR/.status"
+		done_status
 		# TODO: status
 	;;
 	repack)
