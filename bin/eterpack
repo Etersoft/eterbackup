@@ -331,7 +331,7 @@ while read relfile ; do
 
 	echo
 	echo "Extract files from $relfile to $tdir ..."
-	zpaq extract "$DUMPDIR/$relfile" -to "$tdir" $PASSWORDARG || exit
+	zpaq extract "$DUMPDIR/$relfile" -to "$tdir" $ROLLBACK $PASSWORDARG || exit
 done
 
 # TODO check it in some manner
@@ -421,6 +421,7 @@ PASSWORDARG=''
 NOATTRIBUTE=''
 SINGLEARCHIVE=''
 FOLLOWLINKS=''
+ROLLBACK=''
 
 while true ; do
 	case "$1" in
@@ -470,6 +471,13 @@ while true ; do
 		shift
 		FOLLOWLINKS="-L"
 		;;
+
+	--rollback)
+		shift
+		ROLLBACK="-until $1"
+		shift
+		;;
+
 	*)
 		break
 		;;
@@ -588,6 +596,8 @@ case $COMMAND in
 		echo "	--noattribute      - do not extra save owner/group, permissions and special files"
 		echo "	--singlearchive    - pack all subdirs to one package"
 		echo "	--followlinks      - follow links for primary dirs"
+		echo "	--rollback N       - (for restore) roll back archive to N'th update or -N from end."
+		echo "	--rollback 2019-02-18 - roll back to the date (UT, default time: 23:59:59)."
 	;;
 	*)
 		echo "$DESCR" >&2
