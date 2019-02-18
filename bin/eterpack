@@ -547,6 +547,7 @@ case $COMMAND in
 	;;
 	extract|restore)
 		DUMPDIR="$(realpath -e "$1")" || exit
+		[ -d "$DUMPDIR" ] || fatal "$DUMPDIR is not a dir"
 		# source dirname for target by default
 		DESTDIR="$(basename $DUMPDIR)"
 		[ -n "$2" ] && DESTDIR="$(realpath -m "$2")"
@@ -554,10 +555,12 @@ case $COMMAND in
 	;;
 	test|check)
 		DUMPDIR="$(realpath -e "$1")" || exit
+		[ -d "$DUMPDIR" ] || fatal "$DUMPDIR is not a dir"
 		test_dump
 	;;
 	status)
 		DUMPDIR="$(realpath -e "$1")" || exit
+		[ -d "$DUMPDIR" ] || fatal "$DUMPDIR is not a dir"
 		print_status
 	;;
 	-h|--help)
