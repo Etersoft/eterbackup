@@ -1,6 +1,6 @@
 #!/bin/bash
-# Copyright (C) 2015-2018  Etersoft
-# Copyright (C) 2015-2018  Vitaly Lipatov <lav@etersoft.ru>
+# Copyright (C) 2015-2019  Etersoft
+# Copyright (C) 2015-2019  Vitaly Lipatov <lav@etersoft.ru>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -29,7 +29,7 @@ STZ="000000"
 ST1="000001"
 STN="??????"
 
-DESCR="eterpack version $VERSION (c) Etersoft 2015-2018"
+DESCR="eterpack version $VERSION (c) Etersoft 2015-2019"
 
 # realpath workaround
 if ! which realpath 2>/dev/null >/dev/null ; then
@@ -73,6 +73,7 @@ done_status()
 {
 	rm -f "$DUMPDIR/.status"
 	rm -f "$DUMPDIR/.status_ext"
+	date --iso-8601=minutes -u >"$DUMPDIR/.last-updated"
 }
 
 
@@ -400,7 +401,7 @@ print_status()
 		echo "Archive is incomplete, current status: $(cat "$DUMPDIR/.status")"
 		exit 1
 	fi
-	echo "Archive is completed"
+	echo "Archive is completed (last updated at $(cat $DUMPDIR/.last-updated))"
 	exit 0
 }
 
@@ -500,10 +501,11 @@ case $COMMAND in
 		if [ -s "$DUMPDIR/.status" ] ; then
 			info "Previous interrupted task had status $(cat "$DUMPDIR/.status")"
 			#"
+			info "Skipped. TODO"
 		fi
 
 		echo "in progress" >"$DUMPDIR/.status"
-		[ -n "PASSWORDARG" ] && echo "encrypted" >"$DUMPDIR/.encrypted"
+		[ -n "$PASSWORDARG" ] && echo "encrypted" >"$DUMPDIR/.encrypted"
 
 		if [ "$MAXDEPTH" = "0" ] ; then
 			update_archive
