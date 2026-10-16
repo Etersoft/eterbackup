@@ -21,7 +21,7 @@ export LANG=C
 PROGDIR=$(dirname $0)
 [ "$PROGDIR" = "." ] && PROGDIR=$(pwd)
 
-VERSION="0.8"
+VERSION="0.9"
 NEEDZPAQ="7.15"
 BASEPACK=root
 # templates for multi part archive names
@@ -94,25 +94,33 @@ clean_path()
 		 s|//|/|g"
 }
 
+# return 0 if reldir (with last name bdir) is excluded by any --exclude
+is_excluded_dir()
+{
+	local reldir="$1"
+	local bdir="$2"
+	local ex
+	for ex in "${EXCLUDES[@]}" ; do
+		if rhas "$ex" "^/" ; then
+			[ "$reldir" = "$(clean_path "$ex")" ] && return 0
+		else
+			[ "$bdir" = "$ex" ] && return 0
+		fi
+	done
+	return 1
+}
+
 list_dirs()
 {
 local reldir
-#echo "List dirs from $BACKUPDIR, with $EXCLUDEDIR exclude."
+#echo "List dirs from $BACKUPDIR, with ${EXCLUDES[*]} exclude."
 # Получаем список каталогов, которые мы хотим превратить в файлы
 find $FOLLOWLINKS $BACKUPDIR -depth -maxdepth $MAXDEPTH -mindepth $MINDEPTH -type d -printf "%P\n" | \
 while read reldir ; do
 
 	bdir=$(basename "$reldir")
 
-	if rhas "$EXCLUDEDIR" "^/" ; then
-		if [ "$reldir" = "$(clean_path "$EXCLUDEDIR")" ] ; then
-			continue
-		fi
-	else
-		if  [ "$bdir" = "$EXCLUDEDIR" ] ; then
-			continue
-		fi
-	fi
+	is_excluded_dir "$reldir" "$bdir" && continue
 
 	echo "$reldir"
 done
@@ -147,15 +155,18 @@ update_archive()
 		cd - >/dev/null
 	fi
 
-	local EXCLUDEARG=
-	[ -n "$EXCLUDEDIR" ] && EXCLUDEARG="-not $bdir/$(clean_path "$EXCLUDEDIR")"
+	local EXCLUDEARG=()
+	local ex
+	for ex in "${EXCLUDES[@]}" ; do
+		EXCLUDEARG+=(-not "$bdir/$(clean_path "$ex")")
+	done
 
 	cd "$BACKUPDIR/.." || fatal
 	echo
 	echo "Packing single $BACKUPDIR ..."
 	mkdir -p "$DUMPDIR/"
-	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "$bdir" -to . $CHECKSUM $EXCLUDEARG $PASSWORDARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; exit 1 ; }
+	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "$bdir" -to . $CHECKSUM "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
+	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "$bdir" -to . $CHECKSUM "${EXCLUDEARG[@]}" $PASSWORDARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; exit 1 ; }
 	cd - >/dev/null
 
 	cd "$BACKUPDIR" || fatal
@@ -177,28 +188,33 @@ while read reldir ; do
 
 	bdir="$(basename "$reldir")"
 
-	local EXCLUDEARG=
-	if [ -n "$EXCLUDEDIR" ] ; then
-		if rhas "$EXCLUDEDIR" "^/" ; then
-			if [ "$reldir" = "$(clean_path "$EXCLUDEDIR")" ] ; then
+	local EXCLUDEARG=()
+	local ex skipdir=''
+	for ex in "${EXCLUDES[@]}" ; do
+		if rhas "$ex" "^/" ; then
+			if [ "$reldir" = "$(clean_path "$ex")" ] ; then
 				echo "Skip excluded $reldir"
-				continue
+				skipdir=1
+				break
 			fi
-			if rhas "$reldir" "^$(clean_path "$EXCLUDEDIR")/" ; then
+			if rhas "$reldir" "^$(clean_path "$ex")/" ; then
 				echo "Skip excluded $reldir (part)"
-				continue
+				skipdir=1
+				break
 			fi
-			if rhas "$EXCLUDEDIR" "^/$reldir/" ; then
-				EXCLUDEARG="-not $bdir/$(clean_path "$(echo "$EXCLUDEDIR" | sed -e "s|^/$reldir||g")")"
-				echo "Use exclude rule: $EXCLUDEARG"
+			if rhas "$ex" "^/$reldir/" ; then
+				EXCLUDEARG+=(-not "$bdir/$(clean_path "$(echo "$ex" | sed -e "s|^/$reldir||g")")")
+				echo "Use exclude rule: ${EXCLUDEARG[*]}"
 			fi
 		else
-			if [ "$bdir" = "$EXCLUDEDIR" ] ; then
+			if [ "$bdir" = "$ex" ] ; then
 				echo "Skip excluded $bdir"
-				continue
+				skipdir=1
+				break
 			fi
 		fi
-	fi
+	done
+	[ -n "$skipdir" ] && continue
 
 	# TODO: удалённые каталоги будут незамечены и останутся.
 	# Создавать новый слой, копируя со старого, и оставляя тот старыми датами?
@@ -233,8 +249,8 @@ while read reldir ; do
 	# TODO: improve all that tmpoutput things
 	local tmpoutput="$(mktemp)"
 	# TODO: use -to for rename internal path
-	echo zpaq add "$archname" "$babsdir" $CHECKSUM $EXCLUDEARG -index "$zarchname"
-	(zpaq add "$archname" "$babsdir" $CHECKSUM $EXCLUDEARG $PASSWORDARG -index "$zarchname" 2>&1 && touch $tmpoutput.ok) | tee $tmpoutput
+	echo zpaq add "$archname" "$babsdir" $CHECKSUM "${EXCLUDEARG[@]}" -index "$zarchname"
+	(zpaq add "$archname" "$babsdir" $CHECKSUM "${EXCLUDEARG[@]}" $PASSWORDARG -index "$zarchname" 2>&1 && touch $tmpoutput.ok) | tee $tmpoutput
 	local res=0
 	[ -r "$tmpoutput.ok" ] || res=1
 	if [ "$res" = 1 ] ; then
@@ -264,10 +280,9 @@ done || return
 # Получаем список файлов в корне
 # TODO: Здесь бы надо просто выключить рекурсию, но неизвестно как
 # Также неизвестно, как раскрыть
-# FIXME: broken with paths with spaces
 # TODO: не поддерживается удаление файлов
-# FIXME: длина строки ограничена!
-local FILES="$(list_rootfiles)"
+local FILES=()
+mapfile -t FILES < <(list_rootfiles)
 
 # workaround for correct internal path
 cd "$BACKUPDIR" || exit
@@ -276,30 +291,30 @@ if [ -z "$NOATTRIBUTE" ] ; then
 	echo
 	echo "Save attrs and special files..."
 	attrstore save
-	FILES="$FILES $(attrstore metafiles)"
+	local metafile
+	while read -r metafile ; do
+		[ -n "$metafile" ] && FILES+=("$metafile")
+	done < <(attrstore metafiles)
 fi
 
-if [ -n "$FILES" ] ; then
+if [ -n "${FILES[*]}" ] ; then
 
 	#bdir="$(basename "$BACKUPDIR")"
 
 	# FIXME: copy dir permissions
 	mkdir -p "$DUMPDIR"
 
-	local EXCLUDEARG=
-	if [ -n "$EXCLUDEDIR" ] ; then
-		if rhas "$EXCLUDEDIR" "^/" ; then
-			EXCLUDEARG="-not $(clean_path "$EXCLUDEDIR")"
-		#else
-		#	EXCLUDEARG="-not $(clean_path "$EXCLUDEDIR")"
-		fi
-	fi
+	local EXCLUDEARG=()
+	local ex
+	for ex in "${EXCLUDES[@]}" ; do
+		rhas "$ex" "^/" && EXCLUDEARG+=(-not "$(clean_path "$ex")")
+	done
 
 	echo
 	echo "Packing extra files ..."
 	# TODO: use -to for rename internal path
-	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" $FILES $CHECKSUM $EXCLUDEARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" $FILES $CHECKSUM $EXCLUDEARG $PASSWORDARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; return 1 ; }
+	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" $CHECKSUM "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
+	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" $CHECKSUM "${EXCLUDEARG[@]}" $PASSWORDARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; return 1 ; }
 
 	attrstore clear
 
@@ -415,7 +430,7 @@ COMMAND="$1"
 
 MINDEPTH=1
 MAXDEPTH=1
-EXCLUDEDIR=''
+EXCLUDES=()
 EXECUTEAFTER=''
 CHECKSUM=''
 PASSWORDARG=''
@@ -435,9 +450,8 @@ while true ; do
 
 	--exclude)
 		shift
-		# TODO: allow repeatable --exclude
-		[ -n "$EXCLUDEDIR" ] && fatal "TODO: A few --exclude not yet supported"
-		EXCLUDEDIR="$1"
+		[ -n "$1" ] || fatal "--exclude requires a name"
+		EXCLUDES+=("$1")
 		shift
 		;;
 
@@ -594,7 +608,7 @@ case $COMMAND in
 		echo
 		echo "Options:"
 		echo "	--depth N          - set depth for subdirs (1 by default) (update only)"
-		echo "	--exclude name     - exclude dir 'name' from packing (full path or level dir name)"
+		echo "	--exclude name     - exclude dir 'name' from packing (full path or level dir name), can be repeated"
 		echo "	--execute command  - execute 'command' after every archive"
 		echo "	--checksum         - force checking file contains, not date only"
 		echo "	--password         - use password for encryption/decryption"
