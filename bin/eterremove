@@ -64,11 +64,9 @@ check_params()
         if [ -n "$NOTEST" ] ; then
                 CMD_RMRF="rm -vrf"
                 CMD_RMF="rm -vf"
-                CMD_RMDIRP="rmdir -p --ignore-fail-on-non-empty"
         else
                 CMD_RMRF="ls -ld"
                 CMD_RMF="ls -ld"
-                CMD_RMDIRP="ls -ld"
 
                 echo "It is a test run (no files will be deleted)"
         fi
@@ -83,9 +81,13 @@ remove_short_paths()
         # Note! do not use local for prev, it sets in piped while
         prev=""
 
-        sort -r | while read path; do
-                # skip if prev path starts with the path string
-                echo "$prev" | grep -q "^$path" && continue
+        sort -r | while read -r path; do
+                # skip if prev path is inside the path
+                case "$prev" in
+                        "$path"/*)
+                                continue
+                                ;;
+                esac
                 echo "$path"
                 prev="$path"
         done
@@ -98,10 +100,27 @@ remove_broken_links()
 
         [ -z "$NOTEST" ] && echo "Broken links to remove below:"
         find "$REMOVEDIR" -depth -type l ! -name "$EXCLUDEDIR" -print | \
-                while read link ; do
+                while read -r link ; do
                         readlink -e "$link" >/dev/null && continue
                         $CMD_RMF "$link"
                 done
+}
+
+# remove empty dir and its parents which became empty, but never $REMOVEDIR and above
+remove_dir_upto()
+{
+        local dir="$1"
+
+        if [ -z "$NOTEST" ] ; then
+                ls -ld "$dir"
+                return
+        fi
+
+        while [ "${dir#"$REMOVEDIR"/}" != "$dir" ] ; do
+                rmdir "$dir" 2>/dev/null || break
+                echo "removed '$dir'"
+                dir="$(dirname "$dir")"
+        done
 }
 
 remove_empty_dirs()
@@ -112,15 +131,11 @@ remove_empty_dirs()
 
         [ -z "$NOTEST" ] && echo "Empty directories to remove below:"
 
-        # clean empty dirs
-        #find "$REMOVEDIR" -depth $DEPTHMAX -type d -cmin +$MPAUSE ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMDIRP
-
-        # clean empty dirs. we use remove_short_paths due rmdir -p will remove all dirs from sequence
+        # clean empty dirs. we use remove_short_paths due remove_dir_upto will remove all dirs from sequence
         local path
-        find "$REMOVEDIR" -depth $DEPTHMAX -type d -cmin +$MPAUSE -empty ! -name "$EXCLUDEDIR" -print | \
-                remove_short_paths | while read path ; do
-                    # TODO: add error policy
-                    $CMD_RMDIRP "$path" && [ -n "$NOTEST" ] && echo "removed '$path'"
+        find "$REMOVEDIR" -depth -mindepth 1 $DEPTHMAX -type d -cmin +$MPAUSE -empty ! -name "$EXCLUDEDIR" -print | \
+                remove_short_paths | while read -r path ; do
+                    remove_dir_upto "$path"
                 done
 
         remove_broken_links
