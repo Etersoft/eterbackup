@@ -19,7 +19,6 @@ setup()
 }
 
 @test "second update rotates last to a dated dir and syncs" {
-	known_bug "rsync --inplace writes into files hard-linked with the rotated snapshot"
 	"$ETERTM" update sample tm
 	echo second >sample/dir/file
 	"$ETERTM" update sample tm
