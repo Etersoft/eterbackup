@@ -43,7 +43,7 @@ print_message()
 {
 	local DESC="$1"
 	shift
-	echo "$DESC in $(basename $0): $@"
+	echo "$DESC in $(basename "$0"): $*"
 }
 
 # Print error message and stop the program
@@ -115,8 +115,8 @@ list_dirs()
 local reldir
 #echo "List dirs from $BACKUPDIR, with ${EXCLUDES[*]} exclude."
 # Получаем список каталогов, которые мы хотим превратить в файлы
-find $FOLLOWLINKS $BACKUPDIR -depth -maxdepth $MAXDEPTH -mindepth $MINDEPTH -type d -printf "%P\n" | \
-while read reldir ; do
+find "${FOLLOWLINKS[@]}" "$BACKUPDIR" -depth -maxdepth "$MAXDEPTH" -mindepth "$MINDEPTH" -type d -printf "%P\n" | \
+while read -r reldir ; do
 
 	bdir=$(basename "$reldir")
 
@@ -131,7 +131,7 @@ list_rootfiles()
 	# TODO: exclude? or it is in zpaq?
 	# TODO: not dirs from list_dirs
 	# Список файлов:
-	find $BACKUPDIR -depth -maxdepth $MAXDEPTH -mindepth 1 -type f -printf "%P\n"
+	find "$BACKUPDIR" -depth -maxdepth "$MAXDEPTH" -mindepth 1 -type f -printf "%P\n"
 	# Список каталогов, чтобы запаковать пустые каталоги
 	# тут проблема: там могут быть ненужные вложенные каталоги
 	#MINDEPTH=1 MAXDEPTH=$MAXDEPTH list_dirs
@@ -165,8 +165,8 @@ update_archive()
 	echo
 	echo "Packing single $BACKUPDIR ..."
 	mkdir -p "$DUMPDIR/"
-	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "$bdir" -to . $CHECKSUM "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "$bdir" -to . $CHECKSUM "${EXCLUDEARG[@]}" $PASSWORDARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; exit 1 ; }
+	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "$bdir" -to . "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
+	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "$bdir" -to . "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; exit 1 ; }
 	cd - >/dev/null
 
 	cd "$BACKUPDIR" || fatal
@@ -183,8 +183,8 @@ update_dump()
 {
 local reldir
 # Получаем список каталогов, которые мы хотим превратить в файлы
-find $FOLLOWLINKS $BACKUPDIR -depth -maxdepth $MAXDEPTH -mindepth $MINDEPTH -type d -printf "%P\n" | \
-while read reldir ; do
+find "${FOLLOWLINKS[@]}" "$BACKUPDIR" -depth -maxdepth "$MAXDEPTH" -mindepth "$MINDEPTH" -type d -printf "%P\n" | \
+while read -r reldir ; do
 
 	bdir="$(basename "$reldir")"
 
@@ -220,7 +220,7 @@ while read reldir ; do
 	# Создавать новый слой, копируя со старого, и оставляя тот старыми датами?
 
 	# zpaq does not support symlink, so workaround it
-	if [ -n "$FOLLOWLINKS" ] ; then
+	if [ -n "${FOLLOWLINKS[*]}" ] ; then
 		babsdir="$(basename "$(realpath "$BACKUPDIR/$reldir")")"
 		babsreldir="$(realpath "$BACKUPDIR/$reldir/..")"
 	else
@@ -249,25 +249,25 @@ while read reldir ; do
 	# TODO: improve all that tmpoutput things
 	local tmpoutput="$(mktemp)"
 	# TODO: use -to for rename internal path
-	echo zpaq add "$archname" "$babsdir" $CHECKSUM "${EXCLUDEARG[@]}" -index "$zarchname"
-	(zpaq add "$archname" "$babsdir" $CHECKSUM "${EXCLUDEARG[@]}" $PASSWORDARG -index "$zarchname" 2>&1 && touch $tmpoutput.ok) | tee $tmpoutput
+	echo zpaq add "$archname" "$babsdir" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$zarchname"
+	(zpaq add "$archname" "$babsdir" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$zarchname" 2>&1 && touch "$tmpoutput.ok") | tee "$tmpoutput"
 	local res=0
 	[ -r "$tmpoutput.ok" ] || res=1
 	if [ "$res" = 1 ] ; then
 		local errfile=''
-		if grep -q "zpaq: archive exists" $tmpoutput ; then
-			errfile="$(grep "zpaq: archive exists" $tmpoutput | sed -e 's|^\(/.*\.zpaq\).*|\1|g')"
-			mv -v $errfile $errfile.broken || fatal "can't move"
+		if grep -q "zpaq: archive exists" "$tmpoutput" ; then
+			errfile="$(grep "zpaq: archive exists" "$tmpoutput" | sed -e 's|^\(/.*\.zpaq\).*|\1|g')"
+			mv -v "$errfile" "$errfile.broken" || fatal "can't move"
 			fatal_status "recoverable error" "Run again to continue"
 		fi
-		if grep -q "zpaq: Skipping block" $tmpoutput ; then
-			errfile="$(grep "zpaq: Skipping block" $tmpoutput | sed -e 's|^\(/.*\.zpaq\).*|\1|g')"
+		if grep -q "zpaq: Skipping block" "$tmpoutput" ; then
+			errfile="$(grep "zpaq: Skipping block" "$tmpoutput" | sed -e 's|^\(/.*\.zpaq\).*|\1|g')"
 			info "Ignore error with $errfile ..."
 			res=0
 		fi
 	fi
 	# TODO: remove in fatal
-	rm -f $tmpoutput $tmpoutput.ok
+	rm -f "$tmpoutput" "$tmpoutput.ok"
 	[ "$res" = "0" ] || fatal_status "unrecoverable error" "Error during packaging to $archname"
 
 	cd - >/dev/null
@@ -313,8 +313,8 @@ if [ -n "${FILES[*]}" ] ; then
 	echo
 	echo "Packing extra files ..."
 	# TODO: use -to for rename internal path
-	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" $CHECKSUM "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" $CHECKSUM "${EXCLUDEARG[@]}" $PASSWORDARG -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; return 1 ; }
+	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
+	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; return 1 ; }
 
 	attrstore clear
 
@@ -333,7 +333,7 @@ local relfile
 mkdir -p "$DESTDIR" || fatal "Can't create output directory $DESTDIR"
 # Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
 find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
-while read relfile ; do
+while read -r relfile ; do
 	reldir="$(dirname "$relfile")"
 	# FIXME: copy dir permissions
 	# TODO: хранить структуру каталогов отдельно, сразу и проверка?
@@ -347,7 +347,7 @@ while read relfile ; do
 
 	echo
 	echo "Extract files from $relfile to $tdir ..."
-	zpaq extract "$DUMPDIR/$relfile" -to "$tdir" $ROLLBACK $PASSWORDARG || exit
+	zpaq extract "$DUMPDIR/$relfile" -to "$tdir" "${ROLLBACK[@]}" "${PASSWORDARG[@]}" || exit
 done
 
 # TODO check it in some manner
@@ -369,7 +369,7 @@ compare_dump()
 	[ -d "$DESTDIR" ] || fatal "Can't open directory $DESTDIR"
 	# Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
 	find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
-	while read relfile ; do
+	while read -r relfile ; do
 		reldir="$(dirname "$relfile")"
 		# workaround for root archive
 		if [ "$reldir" = "." ] ; then
@@ -378,9 +378,9 @@ compare_dump()
 
 		echo
 		echo "Compare files from $relfile with $DESTDIR/$reldir ..."
-		echo zpaq list "$DUMPDIR/$relfile" $reldir -to "$DESTDIR/$reldir" -not = $CHECKSUM
+		echo zpaq list "$DUMPDIR/$relfile" $reldir -to "$DESTDIR/$reldir" -not = "${CHECKSUM[@]}"
 		# Note! $reldir without quotes therefore it can be empty
-		zpaq list "$DUMPDIR/$relfile" $reldir -to "$DESTDIR/$reldir" $PASSWORDARG -not = $CHECKSUM || exit
+		zpaq list "$DUMPDIR/$relfile" $reldir -to "$DESTDIR/$reldir" "${PASSWORDARG[@]}" -not = "${CHECKSUM[@]}" || exit
 		# TODO: unpack metadata during compare??
 		#if [ -z "$NOATTRIBUTE" ] ; then
 		#fi
@@ -396,12 +396,12 @@ test_dump()
 	local relfile
 	# Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
 	find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
-	while read relfile ; do
+	while read -r relfile ; do
 		reldir="$(dirname "$relfile")"
 
 		echo
 		echo "Checking $relfile ..."
-		zpaq extract "$DUMPDIR/$relfile" -test $PASSWORDARG || exit
+		zpaq extract "$DUMPDIR/$relfile" -test "${PASSWORDARG[@]}" || exit
 	done || return
 
 	# TODO
@@ -416,7 +416,7 @@ print_status()
 		echo "Archive is incomplete, current status: $(cat "$DUMPDIR/.status")"
 		exit 1
 	fi
-	echo "Archive is completed (last updated at $(cat $DUMPDIR/.last-updated))"
+	echo "Archive is completed (last updated at $(cat "$DUMPDIR/.last-updated"))"
 	exit 0
 }
 
@@ -432,12 +432,12 @@ MINDEPTH=1
 MAXDEPTH=1
 EXCLUDES=()
 EXECUTEAFTER=''
-CHECKSUM=''
-PASSWORDARG=''
+CHECKSUM=()
+PASSWORDARG=()
 NOATTRIBUTE=''
 SINGLEARCHIVE=''
-FOLLOWLINKS=''
-ROLLBACK=''
+FOLLOWLINKS=()
+ROLLBACK=()
 
 while true ; do
 	case "$1" in
@@ -463,12 +463,12 @@ while true ; do
 
 	--checksum)
 		shift
-		CHECKSUM="-force"
+		CHECKSUM=(-force)
 		;;
 
 	--password)
 		shift
-		PASSWORDARG="-key $1"
+		PASSWORDARG=(-key "$1")
 		shift
 		;;
 
@@ -484,12 +484,12 @@ while true ; do
 
 	--followlinks)
 		shift
-		FOLLOWLINKS="-L"
+		FOLLOWLINKS=(-L)
 		;;
 
 	--rollback)
 		shift
-		ROLLBACK="-until $1"
+		ROLLBACK=(-until "$1")
 		shift
 		;;
 
@@ -519,7 +519,7 @@ case $COMMAND in
 		fi
 
 		echo "in progress" >"$DUMPDIR/.status"
-		[ -n "$PASSWORDARG" ] && echo "encrypted" >"$DUMPDIR/.encrypted"
+		[ -n "${PASSWORDARG[*]}" ] && echo "encrypted" >"$DUMPDIR/.encrypted"
 
 		if [ "$MAXDEPTH" = "0" ] ; then
 			update_archive
@@ -563,7 +563,7 @@ case $COMMAND in
 		DUMPDIR="$(realpath -e "$1")" || exit
 		[ -d "$DUMPDIR" ] || fatal "$DUMPDIR is not a dir"
 		# source dirname for target by default
-		DESTDIR="$(basename $DUMPDIR)"
+		DESTDIR="$(basename "$DUMPDIR")"
 		[ -n "$2" ] && DESTDIR="$(realpath -m "$2")"
 		extract_dump
 	;;
