@@ -126,6 +126,30 @@ setup()
 	assert_same_tree sample unpacked
 }
 
+@test "--singlearchive with --depth 2 restores dirs in place" {
+	mkdir -p sample/a/b sample/c/d
+	echo b >sample/a/b/file
+	echo d >sample/c/d/file
+	echo a >sample/a/file
+	"$ETERPACK" update --singlearchive --depth 2 sample packed
+	"$ETERPACK" extract packed unpacked
+	assert_same_tree sample unpacked
+	"$ETERPACK" compare packed sample
+}
+
+@test "names starting with a dash" {
+	mkdir -p sample/-dir sample/dir
+	echo a >sample/-dir/file
+	echo b >sample/-rootfile
+	echo c >sample/dir/-file
+	"$ETERPACK" update sample packed
+	"$ETERPACK" extract packed unpacked
+	assert_same_tree sample unpacked
+	"$ETERPACK" update --depth 0 sample packed0
+	"$ETERPACK" extract packed0 unpacked0
+	assert_same_tree sample unpacked0
+}
+
 @test "--depth 2 packs every second level dir separately" {
 	mkdir -p sample/a/b sample/a/c
 	echo b >sample/a/b/file
@@ -212,7 +236,6 @@ setup()
 }
 
 @test "--followlinks packs dirs behind symlinks" {
-	known_bug "dirs are extracted under the link target names, not the link names"
 	create_tree sample
 	mkdir sample-links
 	local d
@@ -223,7 +246,8 @@ setup()
 	"$ETERPACK" check packed
 	"$ETERPACK" extract packed unpacked
 	for d in sample/td-* ; do
-		diff -r --no-dereference "$d" "unpacked/links-$(basename "$d")/$(basename "$d")"
+		# symlinks inside linked dirs are not saved (eterattrstore does not follow links)
+		diff -r --no-dereference -x '.tfL-*' "$d" "unpacked/links-$(basename "$d")"
 	done
 }
 
