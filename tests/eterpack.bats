@@ -374,6 +374,21 @@ check_removed()
 	[[ "$output" == *"incomplete"* ]]
 }
 
+@test "update fails when another update of the same backup is running" {
+	require_cmd flock
+	mkdir -p sample/a packed
+	echo a >sample/a/file
+	# the process holding the lock is sleep itself, so kill releases it
+	(exec 9>packed/.lock && flock 9 && exec sleep 30) >/dev/null 2>&1 3>&- &
+	local pid=$!
+	sleep 1
+	run ! "$ETERPACK" update sample packed
+	[[ "$output" == *"Another eterpack"* ]]
+	kill "$pid"
+	wait "$pid" || true
+	"$ETERPACK" update sample packed
+}
+
 @test "inlist prints dirs and root files" {
 	create_tree sample
 	run -0 "$ETERPACK" inlist sample
