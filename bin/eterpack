@@ -24,9 +24,11 @@ PROGDIR=$(dirname $0)
 VERSION="0.9"
 NEEDZPAQ="7.15"
 BASEPACK=root
-# metadata files from eterattrstore
+# metadata files from eterattrstore, kept in the root of the root archive
 PAXFILE=.eterpack.special.files.pax
 METAFILE=.metadata
+FOLLOWDIR=.eterpack.follow
+METANAMES=("$METAFILE" "$PAXFILE" "$FOLLOWDIR")
 # templates for multi part archive names
 STZ="000000"
 ST1="000001"
@@ -134,7 +136,8 @@ list_rootfiles()
 	# TODO: exclude? or it is in zpaq?
 	# TODO: not dirs from list_dirs
 	# Список файлов:
-	find "$BACKUPDIR" -depth -maxdepth "$MAXDEPTH" -mindepth 1 -type f -printf "%P\n"
+	# with -L, -xtype l is true for symlinks (zpaq skips them, eterattrstore saves them)
+	find "${FOLLOWLINKS[@]}" "$BACKUPDIR" -depth -maxdepth "$MAXDEPTH" -mindepth 1 -type f ! -xtype l -printf "%P\n"
 	# Список каталогов, чтобы запаковать пустые каталоги
 	# тут проблема: там могут быть ненужные вложенные каталоги
 	#MINDEPTH=1 MAXDEPTH=$MAXDEPTH list_dirs
@@ -157,17 +160,58 @@ attrstore()
 	$PROGDIR/eterattrstore "$@"
 }
 
+# symlinks to dirs followed with --followlinks (packed as dirs under the link names)
+list_followed_links()
+{
+	local reldir
+	[ -n "${FOLLOWLINKS[*]}" ] || return 0
+	find -L "$BACKUPDIR" -mindepth 1 -maxdepth "$MAXDEPTH" -type d -printf "%P\n" | \
+	while read -r reldir ; do
+		[ -L "$BACKUPDIR/$reldir" ] && echo "$reldir"
+	done
+	return 0
+}
+
+# save attrs and special files of the source to a new dir in DUMPDIR, print the dir
+# (the source tree is not changed)
+save_metadir()
+{
+	local metadir
+	metadir="$(mktemp -d "$DUMPDIR/.eterpack.tmp.XXXXXX")" || fatal "Can't create a temp dir in $DUMPDIR"
+	list_followed_links >"$metadir.follow"
+	(cd "$BACKUPDIR" && attrstore save --metadir "$metadir" --follow "$metadir.follow") || \
+		{ rm -rf "$metadir" "$metadir.follow" ; fatal "Can't save attributes and special files" ; }
+	rm -f "$metadir.follow"
+	echo "$metadir"
+}
+
+# fatal if the source has a file with our reserved names
+assert_no_metanames()
+{
+	local name
+	for name in "${METANAMES[@]}" ; do
+		if [ -e "$BACKUPDIR/$name" ] || [ -L "$BACKUPDIR/$name" ] ; then
+			fatal "$BACKUPDIR/$name is reserved for eterpack metadata, rename it or use --noattribute"
+		fi
+	done
+}
+
 # direct run for single zpaq archive
 update_archive()
 {
 	bdir="$(basename -- "$BACKUPDIR")"
 
+	local metadir='' FILES=("./$bdir") TONAMES=(.) name
 	if [ -z "$NOATTRIBUTE" ] ; then
 		echo
 		echo "Save attrs and special files..."
-		cd "$BACKUPDIR" || exit
-		attrstore save || fatal "Can't save attributes and special files"
-		cd - >/dev/null || exit
+		metadir="$(save_metadir)" || exit
+		# missed metafiles are marked as removed by zpaq itself (they are under ./$bdir)
+		for name in "${METANAMES[@]}" ; do
+			[ -e "$metadir/$name" ] || continue
+			FILES+=("$metadir/$name")
+			TONAMES+=("./$name")
+		done
 	fi
 
 	local EXCLUDEARG=()
@@ -180,13 +224,12 @@ update_archive()
 	echo
 	echo "Packing single $BACKUPDIR ..."
 	mkdir -p "$DUMPDIR/"
-	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "./$bdir" -to . "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "./$bdir" -to . "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || exit 1
+	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" -to "${TONAMES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
+	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" -to "${TONAMES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || \
+		{ [ -n "$metadir" ] && rm -rf "$metadir" ; exit 1 ; }
 	cd - >/dev/null || exit
 
-	cd "$BACKUPDIR" || fatal
-	attrstore clear
-	cd - >/dev/null || exit
+	[ -n "$metadir" ] && rm -rf "$metadir"
 
 	if [ -n "$EXECUTEAFTER" ] ; then
 		$EXECUTEAFTER "$DUMPDIR/$BASEPACK.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
@@ -207,6 +250,8 @@ list_removed_rootnames()
 	local name
 	[ -s "$DUMPDIR/$BASEPACK.$STZ.zpaq" ] || return 0
 	list_archive_names "$DUMPDIR/$BASEPACK.$STN.zpaq" | while read -r name ; do
+		# metafiles are not in the source
+		[ -z "$NOATTRIBUTE" ] && printf '%s\n' "${METANAMES[@]}" | grep -q -x -F -e "$name" -e "${name%%/*}" && continue
 		[ -e "$BACKUPDIR/$name" ] || [ -L "$BACKUPDIR/$name" ] || echo "$name"
 	done
 }
@@ -360,18 +405,26 @@ local FILES=()
 # removed names are passed too, so zpaq marks them as removed
 mapfile -t FILES < <( (list_rootfiles ; list_empty_dirs ; list_removed_rootnames) | sed -e 's|^-|./-|')
 
-# workaround for correct internal path
-cd "$BACKUPDIR" || exit
+# internal names are the same as the external ones, except the metadata dir
+local TONAMES=("${FILES[@]}")
 
+local metadir='' name
 if [ -z "$NOATTRIBUTE" ] ; then
 	echo
 	echo "Save attrs and special files..."
-	attrstore save || fatal "Can't save attributes and special files"
-	local metafile
-	while read -r metafile ; do
-		[ -n "$metafile" ] && FILES+=("$metafile")
-	done < <(attrstore metafiles)
+	metadir="$(save_metadir)" || exit
+	local stored=''
+	[ -s "$DUMPDIR/$BASEPACK.$STZ.zpaq" ] && stored="$(list_archive_names "$DUMPDIR/$BASEPACK.$STN.zpaq")"
+	for name in "${METANAMES[@]}" ; do
+		# pass the missed metafiles stored before, so zpaq marks them as removed
+		[ -e "$metadir/$name" ] || printf '%s\n' "$stored" | grep -q -x -F -e "$name" || continue
+		FILES+=("$metadir/$name")
+		TONAMES+=("$name")
+	done
 fi
+
+# workaround for correct internal path
+cd "$BACKUPDIR" || exit
 
 if [ -n "${FILES[*]}" ] ; then
 
@@ -388,11 +441,11 @@ if [ -n "${FILES[*]}" ] ; then
 
 	echo
 	echo "Packing extra files ..."
-	# TODO: use -to for rename internal path
-	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - >/dev/null || exit ; return 1 ; }
+	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" -to "${TONAMES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
+	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" -to "${TONAMES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || \
+		{ [ -n "$metadir" ] && rm -rf "$metadir" ; cd - >/dev/null || exit ; return 1 ; }
 
-	attrstore clear
+	[ -n "$metadir" ] && rm -rf "$metadir"
 
 	if [ -n "$EXECUTEAFTER" ] ; then
 		$EXECUTEAFTER "$DUMPDIR/$BASEPACK.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
@@ -437,8 +490,16 @@ done || fatal "Can't extract from $DUMPDIR"
 		cd "$DESTDIR" || return
 		echo
 		echo "Restore attrs ..."
-		attrstore restore
-		attrstore clear
+		# move the metadata out of the tree first: the restored root dir can be read-only
+		local metadir name
+		metadir="$(mktemp -d)" || fatal
+		for name in "${METANAMES[@]}" ; do
+			if [ -e "$name" ] ; then
+				mv "$name" "$metadir/" || fatal "Can't move $DESTDIR/$name"
+			fi
+		done
+		attrstore restore --metadir "$metadir"
+		attrstore clear --metadir "$metadir"
 		cd - >/dev/null || exit
 	fi
 }
@@ -450,17 +511,22 @@ compare_archive()
 {
 	local archive="$1" dir="$2"
 	shift 2
-	local names=()
-	# top level names stored in the archive, without our metadata files
+	local names=() skipargs=() grepargs=(-e "" -e ".") n
+	# skip our metafiles
+	for n in "${METANAMES[@]}" ; do
+		grepargs+=(-e "$n" -e "./$n")
+		skipargs+=(-not "$n" -not "./$n")
+	done
+	# top level names stored in the archive, without our metafiles
 	# Note: names are stored with ./ for --depth 0 and for names started with '-'
 	mapfile -t names < <(list_archive_names "$archive" | \
 		sed -E -e 's|^(\./[^/]+).*|\1|' -e 't' -e 's|/.*||' | \
-		grep -v -x -F -e "$PAXFILE" -e "$METAFILE" -e "./$PAXFILE" -e "./$METAFILE" -e "." | sort -u)
+		grep -v -x -F "${grepargs[@]}" | sort -u)
 	[ -n "${names[*]}" ] || return 0
 
 	local output
 	output="$(cd "$dir" && zpaq list "$archive" "${names[@]}" "${PASSWORDARG[@]}" -not = "${CHECKSUM[@]}" \
-		-not "$PAXFILE" -not "./$PAXFILE" -not "$METAFILE" -not "./$METAFILE" "$@")" || fatal "Can't compare $archive"
+		"${skipargs[@]}" "$@")" || fatal "Can't compare $archive"
 	echo "$output"
 
 	# '#' internal file differs (followed by '+' with the external one), '+' external only, '-' internal only
@@ -639,6 +705,8 @@ case $COMMAND in
 		if [ -s "$DUMPDIR/.status" ] ; then
 			info "Previous interrupted task had status $(cat "$DUMPDIR/.status"), continue it."
 		fi
+
+		[ -n "$NOATTRIBUTE" ] || assert_no_metanames
 
 		echo "in progress" >"$DUMPDIR/.status"
 		[ -n "${PASSWORDARG[*]}" ] && echo "encrypted" >"$DUMPDIR/.encrypted"

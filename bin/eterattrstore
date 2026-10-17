@@ -45,24 +45,70 @@ rhas()
 
 PAXFILE=.eterpack.special.files.pax
 METAFILE=.metadata
+FOLLOWDIR=.eterpack.follow
+# with --metadir, metafiles are kept in a separate dir (eterpack keeps them out of the source tree)
+METADIR=''
+# file with the list of followed symlinks to dirs (relative paths, one per line)
+FOLLOWLIST=''
 
-# FIXME: it needs write permission to the source tree
+set_metadir()
+{
+	METADIR="$1"
+	PAXFILE="$METADIR/$PAXFILE"
+	METAFILE="$METADIR/$METAFILE"
+	FOLLOWDIR="$METADIR/$FOLLOWDIR"
+}
+
+print_followed()
+{
+	[ -n "$FOLLOWLIST" ] && [ -s "$FOLLOWLIST" ] && cat "$FOLLOWLIST"
+	return 0
+}
+
+# special files in the current dir and inside the followed dirs (but not the followed links itself)
+list_special_files()
+{
+	local link
+	find . -depth "(" -type b -or -type c -or -type p -or -type l ")" -printf "%P\n"
+	print_followed | while read -r link ; do
+		find "$link/" -depth -mindepth 1 "(" -type b -or -type c -or -type p -or -type l ")" -printf "%p\n"
+	done
+}
+
+# the followed links are packed as dirs, so do not save them as symlinks
+skip_followed()
+{
+	if [ -n "$FOLLOWLIST" ] && [ -s "$FOLLOWLIST" ] ; then
+		grep -v -x -F -f "$FOLLOWLIST"
+	else
+		cat
+	fi
+	return 0
+}
+
 save_attrs()
 {
-	local dir="."
-	# TODO: will we have error checking here?
-	# TODO: add EXCLUDEDIR
-
 	local res=0
 
 	# save special files
 	# Note: sv4cpio has no ustar limits (100 chars for a link target, about 255 chars for a path)
-	find $dir -depth "(" -type b -or -type c -or -type p -or -type l ")" -printf "%P\n" | pax -wd -x sv4cpio -f "$PAXFILE" || res=1
+	list_special_files | skip_followed | pax -wd -x sv4cpio -f "$PAXFILE" || res=1
 	[ -s "$PAXFILE" ] || rm -f "$PAXFILE" 2>/dev/null
 
 	# save attrs in .metafile
-	metastore -s || res=1
+	metastore -s -f "$METAFILE" || res=1
 	[ -s "$METAFILE" ] || rm -f "$METAFILE" 2>/dev/null
+
+	# metastore does not follow symlinks (it stores the real paths), so save every followed dir separately
+	local link n=0
+	if [ -n "$(print_followed)" ] ; then
+		mkdir -p "$FOLLOWDIR" || return 1
+		while read -r link ; do
+			n=$((n+1))
+			printf '%s\n' "$link" >"$FOLLOWDIR/$n.path" || res=1
+			(cd "$link/" && metastore -s -f "$FOLLOWDIR/$n.metadata") || res=1
+		done <"$FOLLOWLIST"
+	fi
 
 	return $res
 }
@@ -71,6 +117,8 @@ remove_attrs()
 {
 	rm -f "$PAXFILE" 2>/dev/null
 	rm -f "$METAFILE" 2>/dev/null
+	rm -rf "$FOLLOWDIR" 2>/dev/null
+	[ -n "$METADIR" ] && rmdir "$METADIR" 2>/dev/null
 	return 0
 }
 
@@ -86,22 +134,43 @@ compare_attrs()
 	# TODO:
 	#[ -s "$PAXFILE" ] && echo "$PAXFILE"
 	if [ -s "$METAFILE" ] ; then
-		metastore -c
+		metastore -c -f "$METAFILE"
 	fi
 	return 0
 }
 
 restore_attrs()
 {
+	local pathfile link
 	# always uses local .metastore for all subdirs
 	# pax detects the format itself (sv4cpio or ustar in old backups)
 	[ -s "$PAXFILE" ] && pax -r -f "$PAXFILE"
-	[ -s "$METAFILE" ] && metastore -a
+	[ -s "$METAFILE" ] && metastore -a -f "$METAFILE"
+	if [ -d "$FOLLOWDIR" ] ; then
+		for pathfile in "$FOLLOWDIR"/*.path ; do
+			[ -s "$pathfile" ] || continue
+			read -r link <"$pathfile"
+			[ -s "${pathfile%.path}.metadata" ] || continue
+			(cd "./$link/" && metastore -a -f "${pathfile%.path}.metadata")
+		done
+	fi
 	return 0
 }
 
 COMMAND=$1
 shift
+
+if [ "$1" = "--metadir" ] ; then
+	[ -n "$2" ] || fatal "--metadir requires a dir"
+	set_metadir "$2"
+	shift 2
+fi
+
+if [ "$1" = "--follow" ] ; then
+	[ -n "$2" ] || fatal "--follow requires a file"
+	FOLLOWLIST="$2"
+	shift 2
+fi
 
 # epm assure pax
 # epm assure metastore
@@ -124,7 +193,7 @@ case $COMMAND in
 		;;
 	-h|--help)
 		echo $DESCR
-		echo "Run as $0 command"
+		echo "Run as $0 command [--metadir DIR] [--follow FILE]"
 
 		echo
 		echo "Commands:"
@@ -133,6 +202,10 @@ case $COMMAND in
 		echo "	compare    show differences between stored and real metadata"
 		echo "	metafiles  print list of created files with metainfo"
 		echo "	clear      remove files with metainfo"
+		echo
+		echo "Options:"
+		echo "	--metadir DIR  keep metainfo in DIR (absolute path) instead of the current dir"
+		echo "	--follow FILE  also save the dirs behind the symlinks listed in FILE (save only)"
 		;;
 	*)
 		echo "$DESCR" >&2
