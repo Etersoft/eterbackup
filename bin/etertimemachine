@@ -122,7 +122,7 @@ thin_log2rotate_dir()
 	# TODO: what about continue rotate process?
 	[ -n "$(get_status)" ] && fatal "$0 already in $(get_status) process..."
 
-	cd $ROTATEDIR || fatal
+	cd "$ROTATEDIR" || fatal
 	set_status "delete"
 
 	epm assure log2rotate pylog2rotate || fatal
@@ -139,7 +139,7 @@ thin_log2rotate_dir()
 	else
 		for i in $DIRS; do
 			echo "Deleting $i ..."
-			rm -rf $i
+			rm -rf -- "$i"
 		done
 	fi
 
