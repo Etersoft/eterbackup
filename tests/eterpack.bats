@@ -32,11 +32,48 @@ setup()
 }
 
 @test "compare detects changed files" {
-	known_bug "compare exits with 0 when files differ"
 	create_tree sample
 	"$ETERPACK" update sample packed
 	change_tree sample
 	run ! "$ETERPACK" compare packed sample
+}
+
+@test "compare detects removed and new files" {
+	create_tree sample
+	"$ETERPACK" update sample packed
+	cp -a sample sample-new
+	echo new >sample-new/td-new
+	echo new >"$(ls -d sample-new/td-* | head -n1)/new"
+	run ! "$ETERPACK" compare packed sample-new
+	cp -a sample sample-removed
+	rm "$(ls sample-removed/td-*/tf-* | head -n1)"
+	run ! "$ETERPACK" compare packed sample-removed
+	rm "$(ls sample/tf-* | head -n1)"
+	run ! "$ETERPACK" compare packed sample
+}
+
+@test "compare an extracted backup" {
+	create_tree sample
+	"$ETERPACK" update sample packed
+	"$ETERPACK" extract packed unpacked
+	"$ETERPACK" compare packed unpacked
+}
+
+@test "compare with --depth 0, --depth 2 and --singlearchive" {
+	create_tree sample
+	mkdir -p sample/a/b
+	echo f >sample/a/b/f
+	echo g >sample/a/g
+	"$ETERPACK" update --depth 0 sample packed0
+	"$ETERPACK" compare packed0 sample
+	"$ETERPACK" update --depth 2 sample packed2
+	"$ETERPACK" compare packed2 sample
+	"$ETERPACK" update --singlearchive sample packeds
+	"$ETERPACK" compare packeds sample
+	change_tree sample
+	run ! "$ETERPACK" compare packed0 sample
+	run ! "$ETERPACK" compare packed2 sample
+	run ! "$ETERPACK" compare packeds sample
 }
 
 @test "repeated updates append parts and extract the last state" {
