@@ -85,6 +85,24 @@ create_aged_dirs()
 	[ -f sample/full/file ]
 }
 
+@test "remove empty: sibling dirs with a common name prefix" {
+	mkdir -p sample/x/b sample/x/bc/d 'sample/y/a.c' 'sample/y/abc/d'
+	touch -d "1 hour ago" sample/x/b sample/x/bc/d sample/x/bc 'sample/y/a.c' sample/y/abc/d sample/y/abc
+	"$ETERREMOVE" remove --days 1 --notest empty sample
+	[ ! -e sample/x ]
+	[ ! -e sample/y ]
+	[ -d sample ]
+}
+
+@test "remove empty: never removes the working dir and its parents" {
+	mkdir -p parent/sample/empty
+	touch -d "1 hour ago" parent/sample/empty
+	"$ETERREMOVE" remove --days 1 --notest empty parent/sample
+	[ ! -e parent/sample/empty ]
+	[ -d parent/sample ]
+	[ -d parent ]
+}
+
 @test "files with spaces in names" {
 	mkdir -p "sample/dir one"
 	echo old >"sample/dir one/old file"
