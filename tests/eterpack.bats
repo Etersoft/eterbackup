@@ -88,6 +88,49 @@ setup()
 	assert_same_tree sample unpacked
 }
 
+# check_removed "UPDATE OPTIONS": removed files and dirs do not come back on restore
+check_removed()
+{
+	mkdir -p sample/a/sub sample/b/sub sample/c sample/-d
+	echo 1 >sample/a/f1
+	echo 2 >sample/a/sub/f
+	echo 3 >sample/b/sub/f
+	echo 4 >sample/c/f
+	echo 5 >sample/-d/f
+	echo 6 >sample/rootf
+	echo 7 >sample/-rootf
+	echo 8 >sample/keep
+	"$ETERPACK" update $1 sample packed
+	rm -r sample/a/f1 sample/a/sub sample/b sample/-d sample/rootf sample/-rootf
+	"$ETERPACK" update $1 sample packed
+	"$ETERPACK" extract packed unpacked
+	assert_same_tree sample unpacked
+	"$ETERPACK" compare packed sample
+	# the previous state is still there
+	# (with --singlearchive every packed dir is a separate version of the archive)
+	[ "$1" = --singlearchive ] && return
+	"$ETERPACK" extract --rollback 1 packed unpacked1
+	[ -f unpacked1/b/sub/f ]
+	[ -f unpacked1/-d/f ]
+	[ -f unpacked1/rootf ]
+}
+
+@test "removed files and dirs are not restored" {
+	check_removed
+}
+
+@test "removed files and dirs are not restored, --depth 2" {
+	check_removed "--depth 2"
+}
+
+@test "removed files and dirs are not restored, --singlearchive" {
+	check_removed --singlearchive
+}
+
+@test "removed files and dirs are not restored, --depth 0" {
+	check_removed "--depth 0"
+}
+
 @test "update merges trees into the same backup" {
 	create_tree sample1
 	create_tree sample2
