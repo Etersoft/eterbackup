@@ -59,7 +59,6 @@ create_aged_dirs()
 }
 
 @test "remove files: --size keeps the newest files within the limit" {
-	known_bug "--size removes the newest files instead of the oldest"
 	create_datefiles sample
 	"$ETERREMOVE" remove --size 8 files sample
 	[ -e sample/tf-1 ]
