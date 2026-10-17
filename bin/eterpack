@@ -320,28 +320,26 @@ while read -r reldir ; do
 	echo
 	echo "Packing $reldir to $archname ..."
 
-	# TODO: improve all that tmpoutput things
 	local tmpoutput="$(mktemp)"
 	# Note: ./ protects names started with '-'
 	echo zpaq add "$archname" "./$babsdir" -to "$intname" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$zarchname"
 	(zpaq add "$archname" "./$babsdir" -to "$intname" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$zarchname" 2>&1 && touch "$tmpoutput.ok") | tee "$tmpoutput"
-	local res=0
-	[ -r "$tmpoutput.ok" ] || res=1
-	if [ "$res" = 1 ] ; then
-		local errfile=''
-		if grep -q "zpaq: archive exists" "$tmpoutput" ; then
-			errfile="$(grep "zpaq: archive exists" "$tmpoutput" | sed -e 's|^\(/.*\.zpaq\).*|\1|g')"
-			mv -v "$errfile" "$errfile.broken" || fatal "can't move"
-			fatal_status "recoverable error" "Run again to continue"
-		fi
-		if grep -q "zpaq: Skipping block" "$tmpoutput" ; then
-			errfile="$(grep "zpaq: Skipping block" "$tmpoutput" | sed -e 's|^\(/.*\.zpaq\).*|\1|g')"
-			info "Ignore error with $errfile ..."
-			res=0
-		fi
+	local res=0 existfile='' skipfile=''
+	if [ ! -r "$tmpoutput.ok" ] ; then
+		res=1
+		existfile="$(grep "zpaq: archive exists" "$tmpoutput" | sed -e 's|^\(/.*\.zpaq\).*|\1|g')"
+		skipfile="$(grep "zpaq: Skipping block" "$tmpoutput" | sed -e 's|^\(/.*\.zpaq\).*|\1|g')"
 	fi
-	# TODO: remove in fatal
 	rm -f "$tmpoutput" "$tmpoutput.ok"
+
+	if [ -n "$existfile" ] ; then
+		mv -v "$existfile" "$existfile.broken" || fatal "can't move"
+		fatal_status "recoverable error" "Run again to continue"
+	fi
+	if [ -n "$skipfile" ] ; then
+		info "Ignore error with $skipfile ..."
+		res=0
+	fi
 	[ "$res" = "0" ] || fatal_status "unrecoverable error" "Error during packaging to $archname"
 
 	cd - >/dev/null
