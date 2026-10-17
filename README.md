@@ -79,6 +79,8 @@ Options must be given in the order shown by `eterremove --help`.
   backups made before 1.11 use ustar and are restored as well).
 - Both files are created in the root of the source dir during `eterpack update`, packed into the
   `root` archive and removed afterwards. On restore they are applied and removed too.
+- **flock** (util-linux) locks the backup dir (`.lock`), so two updates of the same backup
+  can't run at once.
 - **rsync** and `cp -al` (hard links) are used by etertimemachine.
 - **log2rotate** from pylog2rotate selects the snapshots to delete for `etertimemachine delete`.
 - eterremove uses find, xargs and rm only.
