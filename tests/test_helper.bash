@@ -164,7 +164,7 @@ assert_same_tree()
 	done < <(cd "$1" && find . -type f -printf '%P\0')
 }
 
-# compare trees ignoring empty dirs (they are lost above the packing depth, a known bug)
+# compare trees ignoring empty dirs (dirs which become empty only due to --exclude are not saved)
 assert_same_tree_pruned()
 {
 	rm -rf "$1-pruned" "$2-pruned"

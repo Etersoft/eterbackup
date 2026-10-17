@@ -172,7 +172,7 @@ setup()
 	"$ETERPACK" check packed
 	"$ETERPACK" extract packed unpacked
 	"$ETERPACK" compare packed unpacked
-	assert_same_tree_pruned sample unpacked
+	assert_same_tree sample unpacked
 }
 
 @test "--depth 2 with nested trees and names with spaces" {
@@ -184,7 +184,7 @@ setup()
 	"$ETERPACK" update --depth 2 sample packed
 	"$ETERPACK" extract packed unpacked
 	"$ETERPACK" compare packed unpacked
-	assert_same_tree_pruned sample unpacked
+	assert_same_tree sample unpacked
 }
 
 @test "empty dir is packed" {
@@ -196,7 +196,6 @@ setup()
 }
 
 @test "empty dirs above --depth are packed" {
-	known_bug "empty dirs above the packing depth are lost"
 	mkdir -p sample/stage0 sample/stage1/stage2
 	"$ETERPACK" update --depth 2 sample packed
 	"$ETERPACK" extract packed unpacked
