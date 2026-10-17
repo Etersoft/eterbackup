@@ -203,7 +203,8 @@ update_dir()
 	if [ -d "$ROTATEDIR/$LAST" ] ; then
 		echo "Syncing $BACKUPDIR to $ROTATEDIR/$LAST..."
 		# TODO: a difference in symlink copying between cp and rsync
-		rsync -av --partial --progress $RSYNC_OPTS --inplace --safe-links --hard-links --delete-after "$BACKUPDIR/" "$ROTATEDIR/$LAST/" || fatal "Can't sync. Try again this command."
+		# Note: do not use --inplace, files in $LAST are hard links to the rotated snapshot
+		rsync -av --partial --progress $RSYNC_OPTS --safe-links --hard-links --delete-after "$BACKUPDIR/" "$ROTATEDIR/$LAST/" || fatal "Can't sync. Try again this command."
 	else
 		echo "Copying for first time..."
 		cp -a $CP_OPTS "$BACKUPDIR/" "$ROTATEDIR/$LAST/" || fatal "Can't copy. Try again this command."
