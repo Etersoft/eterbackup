@@ -51,7 +51,6 @@ setup()
 }
 
 @test "--method number names rotated dirs e1, e2" {
-	known_bug "--method number fails: ROTATEDIR is checked before it is set"
 	"$ETERTM" update --method number sample tm
 	"$ETERTM" update --method number sample tm
 	"$ETERTM" update --method number sample tm
@@ -99,6 +98,11 @@ setup()
 	[ "$left" -gt 1 ]
 	[ -d "tm/$(date --rfc-3339=date)" ]
 	[ -d tm/last ]
+}
+
+@test "unknown --method fails" {
+	run ! "$ETERTM" update --method foo sample tm
+	[ ! -e tm ]
 }
 
 @test "delete requires --thinner log2" {
