@@ -89,6 +89,11 @@ Options must be given in the order shown by `eterremove --help`.
 
 - The source dir must be writable: eterpack writes the metadata files into its root.
   Use `--noattribute` for read-only sources (owner/group and special files are not saved then).
+- Files named `.metadata` and `.eterpack.special.files.pax` in the root of the source dir are
+  overwritten and removed by eterpack.
+- `--password` is passed to zpaq on the command line, so other local users can see it in `ps`.
+- Restore only backups you trust: special files and metadata are applied by pax and metastore
+  with the paths stored in the backup.
 - mtime is kept in whole seconds (zpaq).
 - Backslash in names (zpaq 7.15 treats it as a path separator on extract): files with a backslash
   are restored with an extra empty dir named by the part before the backslash, and files inside
