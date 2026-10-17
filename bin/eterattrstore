@@ -53,17 +53,18 @@ save_attrs()
 	# TODO: will we have error checking here?
 	# TODO: add EXCLUDEDIR
 
+	local res=0
+
 	# save special files
-	find $dir -depth "(" -type b -or -type c -or -type p -or -type l ")" -printf "%P\n" | pax -wd -f $PAXFILE || return
+	# Note: sv4cpio has no ustar limits (100 chars for a link target, about 255 chars for a path)
+	find $dir -depth "(" -type b -or -type c -or -type p -or -type l ")" -printf "%P\n" | pax -wd -x sv4cpio -f "$PAXFILE" || res=1
 	[ -s "$PAXFILE" ] || rm -f "$PAXFILE" 2>/dev/null
 
 	# save attrs in .metafile
-	metastore -s
+	metastore -s || res=1
 	[ -s "$METAFILE" ] || rm -f "$METAFILE" 2>/dev/null
 
-	# if didn't create, return
-	#[ -r ".eterpack.special.files.pax" || return
-	return 0
+	return $res
 }
 
 remove_attrs()
@@ -93,7 +94,8 @@ compare_attrs()
 restore_attrs()
 {
 	# always uses local .metastore for all subdirs
-	[ -s "$PAXFILE" ] && pax -r -f .eterpack.special.files.pax
+	# pax detects the format itself (sv4cpio or ustar in old backups)
+	[ -s "$PAXFILE" ] && pax -r -f "$PAXFILE"
 	[ -s "$METAFILE" ] && metastore -a
 	return 0
 }

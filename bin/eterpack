@@ -154,7 +154,7 @@ update_archive()
 		echo
 		echo "Save attrs and special files..."
 		cd "$BACKUPDIR" || exit
-		attrstore save
+		attrstore save || fatal "Can't save attributes and special files"
 		cd - >/dev/null
 	fi
 
@@ -304,7 +304,7 @@ cd "$BACKUPDIR" || exit
 if [ -z "$NOATTRIBUTE" ] ; then
 	echo
 	echo "Save attrs and special files..."
-	attrstore save
+	attrstore save || fatal "Can't save attributes and special files"
 	local metafile
 	while read -r metafile ; do
 		[ -n "$metafile" ] && FILES+=("$metafile")
