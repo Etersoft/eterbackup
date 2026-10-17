@@ -301,9 +301,9 @@ case $COMMAND in
 		echo
 		echo "Options:"
 		echo "	--method date|datetime|number   name convention for rotate dirs (date by default)"
-		echo "	--force                         sync target ever if we do not rotate this time"
+		echo "	--force                         sync target even if we already rotated it this time"
 		echo "	--thinner log2                  method for deletion"
-		echo "	--link                          create hard links instead copying to the timemachine dir"
+		echo "	--link                          create hard links instead of copying files to the timemachine dir"
 		echo "	--debug"
 	;;
 	*)
