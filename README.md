@@ -75,7 +75,8 @@ Options must be given in the order shown by `eterremove --help`.
   (`name.000001.zpaq`, `name.000002.zpaq`, ...), `name.000000.zpaq` is the index of the parts.
   zpaq does not store owner/group and skips symlinks, fifos and devices.
 - **metastore** saves owner/group and permissions to `.metadata`.
-- **pax** saves symlinks, fifos and devices to `.eterpack.special.files.pax` (ustar format).
+- **pax** saves symlinks, fifos and devices to `.eterpack.special.files.pax` (sv4cpio format,
+  backups made before 1.11 use ustar and are restored as well).
 - Both files are created in the root of the source dir during `eterpack update`, packed into the
   `root` archive and removed afterwards. On restore they are applied and removed too.
 - **rsync** and `cp -al` (hard links) are used by etertimemachine.
@@ -87,8 +88,6 @@ Options must be given in the order shown by `eterremove --help`.
 - The source dir must be writable: eterpack writes the metadata files into its root.
   Use `--noattribute` for read-only sources (owner/group and special files are not saved then).
 - mtime is kept in whole seconds (zpaq).
-- pax uses the ustar format: a symlink with a target longer than 100 chars, or a special file
-  with a path longer than about 255 chars, is silently skipped.
 - Backslash in names (zpaq 7.15 treats it as a path separator on extract): files with a backslash
   are restored with an extra empty dir named by the part before the backslash, and files inside
   dirs with a backslash in the name are not restored at all.
