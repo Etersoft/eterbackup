@@ -46,7 +46,7 @@ print_message()
 {
 	local DESC="$1"
 	shift
-	echo "$DESC in $(basename "$0"): $*"
+	echo "$DESC in $(basename -- "$0"): $*"
 }
 
 # Print error message and stop the program
@@ -121,7 +121,7 @@ local reldir
 find "${FOLLOWLINKS[@]}" "$BACKUPDIR" -depth -maxdepth "$MAXDEPTH" -mindepth "$MINDEPTH" -type d -printf "%P\n" | \
 while read -r reldir ; do
 
-	bdir=$(basename "$reldir")
+	bdir=$(basename -- "$reldir")
 
 	is_excluded_dir "$reldir" "$bdir" && continue
 
@@ -148,7 +148,7 @@ attrstore()
 # direct run for single zpaq archive
 update_archive()
 {
-	bdir="$(basename "$BACKUPDIR")"
+	bdir="$(basename -- "$BACKUPDIR")"
 
 	if [ -z "$NOATTRIBUTE" ] ; then
 		echo
@@ -161,15 +161,15 @@ update_archive()
 	local EXCLUDEARG=()
 	local ex
 	for ex in "${EXCLUDES[@]}" ; do
-		EXCLUDEARG+=(-not "$bdir/$(clean_path "$ex")")
+		EXCLUDEARG+=(-not "./$bdir/$(clean_path "$ex")")
 	done
 
 	cd "$BACKUPDIR/.." || fatal
 	echo
 	echo "Packing single $BACKUPDIR ..."
 	mkdir -p "$DUMPDIR/"
-	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "$bdir" -to . "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "$bdir" -to . "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; exit 1 ; }
+	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "./$bdir" -to . "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
+	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "./$bdir" -to . "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; exit 1 ; }
 	cd - >/dev/null
 
 	cd "$BACKUPDIR" || fatal
@@ -189,9 +189,9 @@ local reldir
 find "${FOLLOWLINKS[@]}" "$BACKUPDIR" -depth -maxdepth "$MAXDEPTH" -mindepth "$MINDEPTH" -type d -printf "%P\n" | \
 while read -r reldir ; do
 
-	bdir="$(basename "$reldir")"
+	bdir="$(basename -- "$reldir")"
 
-	local EXCLUDEARG=()
+	local EXCLUDEREL=()
 	local ex skipdir=''
 	for ex in "${EXCLUDES[@]}" ; do
 		if rhas "$ex" "^/" ; then
@@ -206,8 +206,7 @@ while read -r reldir ; do
 				break
 			fi
 			if rhas "$ex" "^/$reldir/" ; then
-				EXCLUDEARG+=(-not "$bdir/$(clean_path "$(echo "$ex" | sed -e "s|^/$reldir||g")")")
-				echo "Use exclude rule: ${EXCLUDEARG[*]}"
+				EXCLUDEREL+=("$(clean_path "$(echo "$ex" | sed -e "s|^/$reldir||g")")")
 			fi
 		else
 			if [ "$bdir" = "$ex" ] ; then
@@ -224,7 +223,7 @@ while read -r reldir ; do
 
 	# zpaq does not support symlink, so workaround it
 	if [ -n "${FOLLOWLINKS[*]}" ] ; then
-		babsdir="$(basename "$(realpath "$BACKUPDIR/$reldir")")"
+		babsdir="$(basename -- "$(realpath "$BACKUPDIR/$reldir")")"
 		babsreldir="$(realpath "$BACKUPDIR/$reldir/..")"
 	else
 		babsdir="$bdir"
@@ -234,8 +233,17 @@ while read -r reldir ; do
 	# workaround for correct internal path
 	cd "$babsreldir" || exit
 
+	# exclude rules match the external path
+	local EXCLUDEARG=()
+	for ex in "${EXCLUDEREL[@]}" ; do
+		EXCLUDEARG+=(-not "./$babsdir/$ex")
+	done
+	[ -n "${EXCLUDEARG[*]}" ] && echo "Use exclude rule: ${EXCLUDEARG[*]}"
 
+	# internal path is the dir path in the source tree (the link name for --followlinks)
+	local intname="$bdir"
 	if [ -n "$SINGLEARCHIVE" ] ; then
+		intname="$reldir"
 		local archname="$DUMPDIR/$BASEPACK.$STN.zpaq"
 		local zarchname="$DUMPDIR/$BASEPACK.$STZ.zpaq"
 	else
@@ -245,15 +253,17 @@ while read -r reldir ; do
 		local archname="$DUMPDIR/$reldir/$bdir.$STN.zpaq"
 		local zarchname="$DUMPDIR/$reldir/$bdir.$STZ.zpaq"
 	fi
+	# zpaq takes a name started with '-' as an option
+	rhas "$intname" "^-" && intname="./$intname"
 
 	echo
 	echo "Packing $reldir to $archname ..."
 
 	# TODO: improve all that tmpoutput things
 	local tmpoutput="$(mktemp)"
-	# TODO: use -to for rename internal path
-	echo zpaq add "$archname" "$babsdir" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$zarchname"
-	(zpaq add "$archname" "$babsdir" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$zarchname" 2>&1 && touch "$tmpoutput.ok") | tee "$tmpoutput"
+	# Note: ./ protects names started with '-'
+	echo zpaq add "$archname" "./$babsdir" -to "$intname" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$zarchname"
+	(zpaq add "$archname" "./$babsdir" -to "$intname" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$zarchname" 2>&1 && touch "$tmpoutput.ok") | tee "$tmpoutput"
 	local res=0
 	[ -r "$tmpoutput.ok" ] || res=1
 	if [ "$res" = 1 ] ; then
@@ -285,7 +295,8 @@ done || return
 # Также неизвестно, как раскрыть
 # TODO: не поддерживается удаление файлов
 local FILES=()
-mapfile -t FILES < <(list_rootfiles)
+# Note: ./ protects names started with '-'
+mapfile -t FILES < <(list_rootfiles | sed -e 's|^-|./-|')
 
 # workaround for correct internal path
 cd "$BACKUPDIR" || exit
@@ -302,7 +313,7 @@ fi
 
 if [ -n "${FILES[*]}" ] ; then
 
-	#bdir="$(basename "$BACKUPDIR")"
+	#bdir="$(basename -- "$BACKUPDIR")"
 
 	# FIXME: copy dir permissions
 	mkdir -p "$DUMPDIR"
@@ -344,7 +355,7 @@ mkdir -p "$DESTDIR" || fatal "Can't create output directory $DESTDIR"
 # Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
 find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
 while read -r relfile ; do
-	reldir="$(dirname "$relfile")"
+	reldir="$(dirname -- "$relfile")"
 	# FIXME: copy dir permissions
 	# TODO: хранить структуру каталогов отдельно, сразу и проверка?
 
@@ -409,12 +420,12 @@ compare_dump()
 	# dirs packed to separate archives are skipped when comparing the root archive
 	local skipdirs=() d
 	while read -r d ; do
-		d="$(dirname "$d")"
+		d="$(dirname -- "$d")"
 		[ "$d" = "." ] || skipdirs+=(-not "$d")
 	done < <(find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n")
 
 	while read -r relfile ; do
-		reldir="$(dirname "$relfile")"
+		reldir="$(dirname -- "$relfile")"
 
 		echo
 		# workaround for root archive
@@ -445,7 +456,7 @@ test_dump()
 	# Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
 	find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
 	while read -r relfile ; do
-		reldir="$(dirname "$relfile")"
+		reldir="$(dirname -- "$relfile")"
 
 		echo
 		echo "Checking $relfile ..."
@@ -608,7 +619,7 @@ case $COMMAND in
 		DUMPDIR="$(realpath -e "$1")" || exit
 		[ -d "$DUMPDIR" ] || fatal "$DUMPDIR is not a dir"
 		# source dirname for target by default
-		DESTDIR="$(basename "$DUMPDIR")"
+		DESTDIR="$(basename -- "$DUMPDIR")"
 		[ -n "$2" ] && DESTDIR="$(realpath -m "$2")"
 		extract_dump
 	;;
