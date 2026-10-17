@@ -89,9 +89,10 @@ Options must be given in the order shown by `eterremove --help`.
 - mtime is kept in whole seconds (zpaq).
 - pax uses the ustar format: a symlink with a target longer than 100 chars, or a special file
   with a path longer than about 255 chars, is silently skipped.
-- File names with a backslash are restored, but zpaq also creates an extra empty dir named
-  by the part before the backslash.
-- Names with a newline or a backslash are not supported for the dirs packed into separate archives
+- Backslash in names (zpaq 7.15 treats it as a path separator on extract): files with a backslash
+  are restored with an extra empty dir named by the part before the backslash, and files inside
+  dirs with a backslash in the name are not restored at all.
+- Names with a newline are not supported for the dirs packed into separate archives
   (the dirs at `--depth` level): update fails.
 - Dirs at the `--depth` level whose names start with `-` are skipped.
 - Files and dirs removed from the source are kept in the backup, and restored, when they are
