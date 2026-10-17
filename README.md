@@ -77,8 +77,10 @@ Options must be given in the order shown by `eterremove --help`.
 - **metastore** saves owner/group and permissions to `.metadata`.
 - **pax** saves symlinks, fifos and devices to `.eterpack.special.files.pax` (sv4cpio format,
   backups made before 1.11 use ustar and are restored as well).
-- Both files are created in the root of the source dir during `eterpack update`, packed into the
-  `root` archive and removed afterwards. On restore they are applied and removed too.
+- With `--followlinks` metastore data for every linked dir is saved to `.eterpack.follow/`.
+- During `eterpack update` these files are written to a temporary dir in the backup dir (the source
+  is not changed) and packed into the root of the `root` archive. On restore they are applied
+  and removed.
 - **flock** (util-linux) locks the backup dir (`.lock`), so two updates of the same backup
   can't run at once.
 - **rsync** and `cp -al` (hard links) are used by etertimemachine.
@@ -87,10 +89,8 @@ Options must be given in the order shown by `eterremove --help`.
 
 ## Limitations
 
-- The source dir must be writable: eterpack writes the metadata files into its root.
-  Use `--noattribute` for read-only sources (owner/group and special files are not saved then).
-- Files named `.metadata` and `.eterpack.special.files.pax` in the root of the source dir are
-  overwritten and removed by eterpack.
+- The names `.metadata`, `.eterpack.special.files.pax` and `.eterpack.follow` in the root of the
+  source dir are reserved: update fails if any of them exists (unless `--noattribute` is used).
 - `--password` is passed to zpaq on the command line, so other local users can see it in `ps`.
 - Restore only backups you trust: special files and metadata are applied by pax and metastore
   with the paths stored in the backup.
@@ -106,7 +106,6 @@ Options must be given in the order shown by `eterremove --help`.
 - With `--singlearchive` every packed dir is a separate zpaq version, so `--rollback N` counts
   these versions, not updates; use `--rollback DATE` there.
 - Dirs above the `--depth` level which become empty only due to `--exclude` are not saved.
-- With `--followlinks` owner/group and special files inside the linked dirs are not saved.
 - `compare` checks contents, sizes, dates and permissions of files. It does not check owner/group,
   special files and dir dates, and does not report new files above the `--depth` level.
 - Always use the same source dir name for the same backup.
