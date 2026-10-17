@@ -10,8 +10,9 @@ See the detailed Russian description here: http://wiki.etersoft.ru/Eterbackup
   It uses the great archiver [ZPAQ](http://mattmahoney.net/dc/zpaq.html) to create the archives.
 - **etertimemachine** backs up a file tree and rotates its snapshots (hard-linked copies named by date or number).
 - **eterremove** removes obsolete files and directories by age or total size, and removes empty directories.
-- **eterattrstore** is a helper for eterpack. It saves and restores owners, permissions and special files
-  (devices, fifos, symlinks), which zpaq does not store.
+- **eterattrstore** is a helper for eterpack. It saves owner/group (with metastore) and special files
+  (devices, fifos, symlinks, with pax), which zpaq does not store. zpaq itself keeps file contents,
+  permission bits and mtime (in whole seconds) only, and silently skips symlinks and special files.
 
 ## eterpack
 
@@ -40,7 +41,7 @@ Main options:
 --execute command    execute 'command' after every archive
 --checksum           compare file contents, not only dates
 --password pass      encrypt/decrypt archives
---noattribute        do not save owner/group, permissions and special files
+--noattribute        do not save owner/group and special files (zpaq still keeps permissions)
 --singlearchive      pack all subdirs into one archive
 --followlinks        follow symlinks for the primary dirs
 --rollback N|DATE    (for restore) roll back to the N'th update, -N from the end, or to the date

@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Etersoft Backup Tools: a set of standalone shell scripts in `bin/` (no build step), packaged for ALT Linux via gear (`.gear/`, `eterbackup.spec`). Detailed Russian docs: http://wiki.etersoft.ru/Eterbackup
 
 - `eterpack` (bash): packs a directory tree into a few append-only, deduplicated ZPAQ archives, one per subdirectory at a chosen depth.
-- `eterattrstore` (bash): helper called by `eterpack`; saves and restores owners, permissions and special files (devices, fifos, symlinks), which zpaq does not store itself.
+- `eterattrstore` (bash): helper called by `eterpack`. It saves owner/group (metastore) and special files such as devices, fifos and symlinks (pax). zpaq itself keeps only contents, permission bits and mtime in whole seconds, and silently skips symlinks and special files.
 - `etertimemachine` (POSIX sh): rsync/`cp -al` snapshot rotation (`last` plus dated/numbered dirs), with log2 thinning through `log2rotate`.
 - `eterremove` (POSIX sh): removes old files and dirs by age or total size, and empty dirs. It is a dry run unless `--notest` is given.
 
