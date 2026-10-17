@@ -96,7 +96,7 @@ Options must be given in the order shown by `eterremove --help`.
 - Files and dirs removed from the source are kept in the backup, and restored, when they are
   above the `--depth` level (whole packed dirs and files in the `root` archive).
   Removing inside a packed dir is tracked.
-- Empty dirs above the `--depth` level are not saved (`--depth` 2 and more).
+- Dirs above the `--depth` level which become empty only due to `--exclude` are not saved.
 - With `--followlinks` owner/group and special files inside the linked dirs are not saved.
 - `compare` checks contents, sizes, dates and permissions of files. It does not check owner/group,
   special files and dir dates, and does not report new files above the `--depth` level.
