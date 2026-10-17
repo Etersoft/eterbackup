@@ -35,15 +35,18 @@ Installation: `make install DESTDIR=... bindir=... mandir=...` copies `bin/*` (f
 ## eterpack architecture
 
 Archive layout produced by `eterpack update SRC DST [--depth N]`:
-- For every directory at exactly depth N (`MINDEPTH=MAXDEPTH=N`), it creates `DST/<reldir>/<name>.??????.zpaq`, a zpaq multipart archive: `.000000.zpaq` is the index, and each update appends a new `.00000N.zpaq` part. zpaq is run from the parent dir (`cd "$BACKUPDIR/$reldir/.."`) so that paths inside the archive start with `<name>/`.
-- Files at depths shallower than N go into `DST/root.??????.zpaq`, together with the metafiles from `eterattrstore` (`.metadata`, `.eterpack.special.files.pax`). Those metafiles are written temporarily into the **source** tree and removed afterwards, so the source must be writable.
+- For every directory at exactly depth N (`MINDEPTH=MAXDEPTH=N`), it creates `DST/<reldir>/<name>.??????.zpaq`, a zpaq multipart archive: `.000000.zpaq` is the index, and each update appends a new `.00000N.zpaq` part. zpaq is run from the parent dir as `zpaq add ARCH ./<dir> -to <intname>`. The internal name is the dir name in the source (the link name with `--followlinks`, `reldir` with `--singlearchive`). The `./` prefix, and `./` before an internal name starting with `-`, keep zpaq from parsing names as options. zpaq matches `-not` patterns against the **external** path (`./<dir>/...`) and `-to` sets the internal one.
+- Files at depths shallower than N, and empty dirs above depth N, go into `DST/root.??????.zpaq`, together with the metafiles from `eterattrstore` (`.metadata`, `.eterpack.special.files.pax`). Those metafiles are written temporarily into the **source** tree and removed afterwards, so the source must be writable.
 - `--depth 0` runs `update_archive`, which packs the whole tree into one `root` archive. `--singlearchive` puts every subdir into the single root archive.
 - After an update, `DST` also holds `dirs.list`, `files.list`, `.last-updated`, and `.status`/`.status_ext` while a run is in progress or after it fails. The `status` command reads these files. When zpaq reports "archive exists", the broken part is renamed to `.broken` so that the next run can continue.
 - `extract`/`compare`/`test` find every `*.000000.zpaq` and run zpaq on the `??????` glob, never on a single part.
+- Removing: zpaq marks stored files as removed only under the paths it is given. So `update` also passes the names that were removed from the source: `mark_removed_dirs` handles dir archives whose dir is gone, and `list_removed_rootnames` handles the root archive.
+- `compare` runs `zpaq list ARCH <top names> -not =` in the dir the archive extracts to. zpaq always exits 0 here, so `compare_archive` counts the `#`/`+`/`-` lines itself, skipping dir lines.
+- `update` takes `flock` on `DST/.lock`.
 
 `--exclude` (can be repeated, stored in the `EXCLUDES` array): a value starting with `/` is a path relative to the source root. It skips that dir, or anything below it, or becomes a zpaq `-not` pattern when the excluded path lies inside a packed dir. A value without `/` matches a directory basename at the packing depth. The same matching rules are implemented in three places (`is_excluded_dir`/`list_dirs`, the loop in `update_dump`, and `update_archive`), so keep them in sync. `tests/eterpack-exclude.bats` covers the combinations.
 
-Filenames with spaces and special characters must work. Quote paths and use arrays for zpaq argument lists (see `create_spaces_tree`/`create_symbols_tree` and the `*-spaces` tests). `$CHECKSUM`, `$PASSWORDARG`, `$ROLLBACK` and `$FOLLOWLINKS` are left unquoted on purpose, because they may be empty or contain several words.
+Filenames with spaces and special characters must work. Quote paths, use `read -r`, use `basename --`/`dirname --`, and keep option lists in arrays (`CHECKSUM`, `PASSWORDARG`, `ROLLBACK`, `FOLLOWLINKS`, `EXCLUDEARG`).
 
 ## Conventions
 
