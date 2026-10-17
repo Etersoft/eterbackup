@@ -327,9 +327,16 @@ cd - >/dev/null
 
 }
 
+# fatal if there are no archives in $DUMPDIR
+assert_archives()
+{
+	[ -n "$(find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -print -quit)" ] || fatal "No zpaq archives are found in $DUMPDIR"
+}
+
 extract_dump()
 {
 local relfile
+assert_archives
 mkdir -p "$DESTDIR" || fatal "Can't create output directory $DESTDIR"
 # Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
 find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
@@ -348,10 +355,7 @@ while read -r relfile ; do
 	echo
 	echo "Extract files from $relfile to $tdir ..."
 	zpaq extract "$DUMPDIR/$relfile" -to "$tdir" "${ROLLBACK[@]}" "${PASSWORDARG[@]}" || exit
-done
-
-# TODO check it in some manner
-#[ -n "$reldir" ] || fatal "No internal zpaq archive is found"
+done || fatal "Can't extract from $DUMPDIR"
 
 	if [ -z "$NOATTRIBUTE" ] ; then
 		cd "$DESTDIR" || return
@@ -366,6 +370,7 @@ done
 compare_dump()
 {
 	local relfile
+	assert_archives
 	[ -d "$DESTDIR" ] || fatal "Can't open directory $DESTDIR"
 	# Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
 	find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
@@ -394,6 +399,7 @@ compare_dump()
 test_dump()
 {
 	local relfile
+	assert_archives
 	# Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
 	find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
 	while read -r relfile ; do
@@ -403,9 +409,6 @@ test_dump()
 		echo "Checking $relfile ..."
 		zpaq extract "$DUMPDIR/$relfile" -test "${PASSWORDARG[@]}" || exit
 	done || return
-
-	# TODO
-	#[ -n "$reldir" ] || fatal "No internal zpaq archive is found"
 
 	# TODO: add checking by dirs.lists (correct structure)
 }
