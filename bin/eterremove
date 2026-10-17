@@ -149,10 +149,10 @@ remove_old_size_files()
 
         local SIZEBYTES=$(($SIZELIMIT*1024*1024*1024))
         local TOTAL=0
-        # print all files sorted by date. skip first files which summary size not more limit
+        # print all files sorted by date, newest first. skip first files which summary size not more limit
         find "$REMOVEDIR" -depth -mindepth $DEPTH $DEPTHMAX \
-                -type f ! -name "$EXCLUDEDIR" -printf "%T+ %s %p\n" | sort | \
-                while read date size path ; do
+                -type f ! -name "$EXCLUDEDIR" -printf "%T+ %s %p\n" | sort -r | \
+                while read -r date size path ; do
                         TOTAL=$(($TOTAL+$size))
                         #echo "$date $size $path $TOTAL $SIZEBYTES"
                         [ "$TOTAL" -lt "$SIZEBYTES" ] && continue
