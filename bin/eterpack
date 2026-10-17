@@ -632,12 +632,14 @@ case $COMMAND in
 		# Note: without -p, do not create full path in suddenly place
 		[ -d "$DUMPDIR" ] || mkdir "$DUMPDIR" || exit
 
+		# do not run two updates of the same backup at once
+		exec 9>"$DUMPDIR/.lock" || fatal "Can't create $DUMPDIR/.lock"
+		flock -n 9 || fatal "Another eterpack is updating $DUMPDIR"
+
 		info "eterpack: packing to $DUMPDIR ..."
 
 		if [ -s "$DUMPDIR/.status" ] ; then
-			info "Previous interrupted task had status $(cat "$DUMPDIR/.status")"
-			#"
-			info "Skipped. TODO"
+			info "Previous interrupted task had status $(cat "$DUMPDIR/.status"), continue it."
 		fi
 
 		echo "in progress" >"$DUMPDIR/.status"
