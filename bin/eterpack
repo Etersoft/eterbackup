@@ -24,6 +24,9 @@ PROGDIR=$(dirname $0)
 VERSION="0.9"
 NEEDZPAQ="7.15"
 BASEPACK=root
+# metadata files from eterattrstore
+PAXFILE=.eterpack.special.files.pax
+METAFILE=.metadata
 # templates for multi part archive names
 STZ="000000"
 ST1="000001"
@@ -367,33 +370,72 @@ done || fatal "Can't extract from $DUMPDIR"
 	fi
 }
 
+# compare archive $1 with files in dir $2 (the dir where the archive is extracted to)
+# the rest args are extra zpaq options
+# return 1 if there are differences
+compare_archive()
+{
+	local archive="$1" dir="$2"
+	shift 2
+	local names=()
+	# top level names stored in the archive, without our metadata files
+	mapfile -t names < <(zpaq list "$archive" "${PASSWORDARG[@]}" | \
+		sed -n -e 's|^- [0-9-]* [0-9:]* *[0-9]* *[^ ]* \(.*\)$|\1|p' | cut -d/ -f1 | \
+		grep -v -x -F -e "$PAXFILE" -e "$METAFILE" | sort -u)
+	[ -n "${names[*]}" ] || return 0
+
+	local output
+	output="$(cd "$dir" && zpaq list "$archive" "${names[@]}" "${PASSWORDARG[@]}" -not = "${CHECKSUM[@]}" \
+		-not "$PAXFILE" -not "./$PAXFILE" -not "$METAFILE" -not "./$METAFILE" "$@")" || fatal "Can't compare $archive"
+	echo "$output"
+
+	# '#' internal file differs (followed by '+' with the external one), '+' external only, '-' internal only
+	# skip dirs: dir dates are not restored and archives can keep files without their dirs
+	echo "$output" | awk '
+		{ name = $0 ; sub(/^[-#+] [0-9-]+ [0-9:]+ +[0-9]+ +[^ ]* /, "", name) }
+		name ~ /\/$/ { next }
+		/^# [0-9]/ { changed[name] = 1 ; diff++ ; next }
+		/^\+ [0-9]/ { if (!(name in changed)) diff++ ; next }
+		/^- [0-9]/ { diff++ }
+		END { exit diff > 0 }'
+}
+
 compare_dump()
 {
-	local relfile
+	local relfile res=0
 	assert_archives
 	[ -d "$DESTDIR" ] || fatal "Can't open directory $DESTDIR"
-	# Note: it is important to use ???.zpaq during extract (000.zpaq has no files, 001.zpaq will unpack only this archive).
-	find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
+
+	# dirs packed to separate archives are skipped when comparing the root archive
+	local skipdirs=() d
+	while read -r d ; do
+		d="$(dirname "$d")"
+		[ "$d" = "." ] || skipdirs+=(-not "$d")
+	done < <(find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n")
+
 	while read -r relfile ; do
 		reldir="$(dirname "$relfile")"
-		# workaround for root archive
-		if [ "$reldir" = "." ] ; then
-			reldir=""
-		fi
 
 		echo
-		echo "Compare files from $relfile with $DESTDIR/$reldir ..."
-		echo zpaq list "$DUMPDIR/$relfile" $reldir -to "$DESTDIR/$reldir" -not = "${CHECKSUM[@]}"
-		# Note! $reldir without quotes therefore it can be empty
-		zpaq list "$DUMPDIR/$relfile" $reldir -to "$DESTDIR/$reldir" "${PASSWORDARG[@]}" -not = "${CHECKSUM[@]}" || exit
-		# TODO: unpack metadata during compare??
-		#if [ -z "$NOATTRIBUTE" ] ; then
-		#fi
-	done || return
+		# workaround for root archive
+		if [ "$reldir" = "." ] ; then
+			echo "Compare files from $relfile with $DESTDIR ..."
+			compare_archive "$DUMPDIR/$relfile" "$DESTDIR" "${skipdirs[@]}" || res=1
+		else
+			tdir="$(realpath -m "$DESTDIR/$reldir/..")"
+			echo "Compare files from $relfile with $tdir ..."
+			compare_archive "$DUMPDIR/$relfile" "$tdir" || res=1
+		fi
+		# TODO: compare metadata (owner, group, special files)
+	done < <(find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g")
 
-	# TODO
-	#[ -n "$reldir" ] || fatal "No internal zpaq archive is found"
-
+	echo
+	if [ "$res" = 0 ] ; then
+		echo "No differences are found."
+	else
+		echo "There are differences."
+	fi
+	return $res
 }
 
 test_dump()
