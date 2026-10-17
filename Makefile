@@ -18,3 +18,7 @@ install:
 
 	mkdir -p $(DESTDIR)$(mandir)/man1
 	cp -a `ls -1 man/*` $(DESTDIR)$(mandir)/man1/
+
+# run tests in a container (see tests/run-in-container.sh)
+check:
+	tests/run-in-container.sh
