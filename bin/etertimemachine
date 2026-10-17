@@ -84,7 +84,7 @@ get_status()
 next_number()
 {
 	assert_var ROTATEDIR
-	local OLDNUM=$(ls -d -v -1 $ROTATEDIR/$NUMPREFIX* | tail -n1)
+	local OLDNUM=$(ls -d -v -1 "$ROTATEDIR/$NUMPREFIX"* 2>/dev/null | tail -n1)
 	OLDNUM=$(basename "$OLDNUM" | sed -e "s|$NUMPREFIX||g")
 
 	if [ -z "$OLDNUM" ] || [ "$OLDNUM" = "0" ] ; then
@@ -222,7 +222,12 @@ METHOD="date"
 if [ "$1" = "--method" ] ; then
 	shift
 	METHOD=$1
-	get_mark $METHOD >/dev/null
+	case "$METHOD" in
+		date|datetime|ns|number)
+			;;
+		*)
+			fatal "Unknown method $METHOD"
+	esac
 	shift
 fi
 
