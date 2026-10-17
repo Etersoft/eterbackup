@@ -194,6 +194,55 @@ update_archive()
 
 }
 
+# print the names stored in the last version of archive $1, without the trailing /
+list_archive_names()
+{
+	zpaq list "$1" "${PASSWORDARG[@]}" | \
+		sed -n -e 's|^- [0-9-]* [0-9:]* *[0-9]* *[^ ]* \(.*\)$|\1|p' | sed -e 's|/$||'
+}
+
+# names from the root archive which are removed from the source
+list_removed_rootnames()
+{
+	local name
+	[ -s "$DUMPDIR/$BASEPACK.$STZ.zpaq" ] || return 0
+	list_archive_names "$DUMPDIR/$BASEPACK.$STN.zpaq" | while read -r name ; do
+		[ -e "$BACKUPDIR/$name" ] || [ -L "$BACKUPDIR/$name" ] || echo "$name"
+	done
+}
+
+# mark as removed the dir archives for the dirs which are removed from the source
+# (zpaq add marks the stored files as removed if they are missed)
+mark_removed_dirs()
+{
+	local relfile reldir bdir intname emptydir
+	emptydir="$(mktemp -d)" || fatal
+	while read -r relfile ; do
+		reldir="$(dirname -- "$relfile")"
+		[ "$reldir" = "." ] && continue
+		[ -d "$BACKUPDIR/$reldir" ] && continue
+		# keep the backup of excluded dirs
+		is_excluded_dir "$reldir" "$(basename -- "$reldir")" && continue
+		bdir="$(basename -- "$reldir")"
+		intname="$bdir"
+		rhas "$intname" "^-" && intname="./$intname"
+		local archname="$DUMPDIR/$reldir/$bdir.$STN.zpaq"
+		local zarchname="$DUMPDIR/$reldir/$bdir.$STZ.zpaq"
+		# no files with the archived names after the last update
+		list_archive_names "$archname" | grep -q . || continue
+
+		echo
+		echo "Mark removed $reldir in $archname ..."
+		(cd "$emptydir" && zpaq add "$archname" "./$bdir" -to "$intname" "${PASSWORDARG[@]}" -index "$zarchname") || \
+			fatal_status "unrecoverable error" "Can't mark removed $reldir in $archname"
+
+		if [ -n "$EXECUTEAFTER" ] ; then
+			$EXECUTEAFTER "$archname" || fatal "Executed command $EXECUTEAFTER failed"
+		fi
+	done < <(find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g")
+	rmdir "$emptydir"
+}
+
 update_dump()
 {
 local reldir
@@ -306,9 +355,12 @@ done || return
 # TODO: Здесь бы надо просто выключить рекурсию, но неизвестно как
 # Также неизвестно, как раскрыть
 # TODO: не поддерживается удаление файлов
+mark_removed_dirs
+
 local FILES=()
 # Note: ./ protects names started with '-'
-mapfile -t FILES < <( (list_rootfiles ; list_empty_dirs) | sed -e 's|^-|./-|')
+# removed names are passed too, so zpaq marks them as removed
+mapfile -t FILES < <( (list_rootfiles ; list_empty_dirs ; list_removed_rootnames) | sed -e 's|^-|./-|')
 
 # workaround for correct internal path
 cd "$BACKUPDIR" || exit
@@ -402,9 +454,10 @@ compare_archive()
 	shift 2
 	local names=()
 	# top level names stored in the archive, without our metadata files
-	mapfile -t names < <(zpaq list "$archive" "${PASSWORDARG[@]}" | \
-		sed -n -e 's|^- [0-9-]* [0-9:]* *[0-9]* *[^ ]* \(.*\)$|\1|p' | cut -d/ -f1 | \
-		grep -v -x -F -e "$PAXFILE" -e "$METAFILE" | sort -u)
+	# Note: names are stored with ./ for --depth 0 and for names started with '-'
+	mapfile -t names < <(list_archive_names "$archive" | \
+		sed -E -e 's|^(\./[^/]+).*|\1|' -e 't' -e 's|/.*||' | \
+		grep -v -x -F -e "$PAXFILE" -e "$METAFILE" -e "./$PAXFILE" -e "./$METAFILE" -e "." | sort -u)
 	[ -n "${names[*]}" ] || return 0
 
 	local output
@@ -433,7 +486,8 @@ compare_dump()
 	local skipdirs=() d
 	while read -r d ; do
 		d="$(dirname -- "$d")"
-		[ "$d" = "." ] || skipdirs+=(-not "$d")
+		# zpaq takes '-' as an option, such dirs can be at the top level only and need no skipping
+		[ "$d" = "." ] || rhas "$d" "^-" || skipdirs+=(-not "$d")
 	done < <(find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n")
 
 	while read -r relfile ; do
