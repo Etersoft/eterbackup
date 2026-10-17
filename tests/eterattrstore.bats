@@ -83,6 +83,33 @@ create_special_tree()
 	[ ! -L unpacked/dir/link ]
 }
 
+@test "eterpack keeps long symlinks and special files with long paths" {
+	require_zpaq
+	local long100 target
+	long100="$(printf 'd%.0s' $(seq 1 100))"
+	target="$(printf 't%.0s' $(seq 1 150))"
+	mkdir -p "sample/dir/$long100/$long100"
+	ln -s short sample/dir/short-link
+	ln -s "$target" sample/dir/long-link
+	ln -s target "sample/dir/$long100/$long100/link-with-long-path"
+	mkfifo "sample/dir/$long100/$long100/fifo-with-long-path"
+	"$ETERPACK" update sample packed
+	"$ETERPACK" extract packed unpacked
+	assert_same_tree sample unpacked
+}
+
+@test "restore special files saved in the old ustar format" {
+	mkdir -p sample/dir
+	ln -s file sample/dir/link
+	mkfifo sample/dir/fifo
+	(cd sample && find . -type l -o -type p | sed -e 's|^\./||' | pax -wd -x ustar -f .eterpack.special.files.pax)
+	mkdir restored
+	cp sample/.eterpack.special.files.pax restored/
+	(cd restored && "$ETERATTRSTORE" restore)
+	[ -L restored/dir/link ]
+	[ -p restored/dir/fifo ]
+}
+
 @test "unknown command fails" {
 	run ! "$ETERATTRSTORE" foo
 	run -0 "$ETERATTRSTORE" --help
