@@ -47,7 +47,6 @@ Main options:
 --rollback N|DATE    (for restore) roll back to the N'th update, -N from the end, or to the date
 ```
 
-Note: always use the same source dir name for the same backup.
 
 ## etertimemachine
 
@@ -69,12 +68,37 @@ eterremove remove --exclude current --days 10 dirs /path/to/remove
 eterremove only shows what would be removed until you add `--notest`.
 Options must be given in the order shown by `eterremove --help`.
 
-## Requirements
+## What is used
 
-- zpaq 7.15 (eterpack checks the exact version)
-- metastore and pax (for saving attributes)
-- rsync (etertimemachine)
-- log2rotate from pylog2rotate (`etertimemachine delete`)
+- **zpaq 7.15** (eterpack checks the exact version) stores file contents, permission bits and
+  mtime (in whole seconds). It deduplicates data and appends every update as a new part
+  (`name.000001.zpaq`, `name.000002.zpaq`, ...), `name.000000.zpaq` is the index of the parts.
+  zpaq does not store owner/group and skips symlinks, fifos and devices.
+- **metastore** saves owner/group and permissions to `.metadata`.
+- **pax** saves symlinks, fifos and devices to `.eterpack.special.files.pax` (ustar format).
+- Both files are created in the root of the source dir during `eterpack update`, packed into the
+  `root` archive and removed afterwards. On restore they are applied and removed too.
+- **rsync** and `cp -al` (hard links) are used by etertimemachine.
+- **log2rotate** from pylog2rotate selects the snapshots to delete for `etertimemachine delete`.
+- eterremove uses find, xargs and rm only.
+
+## Limitations
+
+- The source dir must be writable: eterpack writes the metadata files into its root.
+  Use `--noattribute` for read-only sources (owner/group and special files are not saved then).
+- mtime is kept in whole seconds (zpaq).
+- pax uses the ustar format: a symlink with a target longer than 100 chars, or a special file
+  with a path longer than about 255 chars, is silently skipped.
+- File names with a backslash are restored, but zpaq also creates an extra empty dir named
+  by the part before the backslash.
+- Names with a newline or a backslash are not supported for the dirs packed into separate archives
+  (the dirs at `--depth` level): update fails.
+- Dirs at the `--depth` level whose names start with `-` are skipped.
+- Files and dirs removed from the source are kept in the backup, and restored, when they are
+  above the `--depth` level (whole packed dirs and files in the `root` archive).
+  Removing inside a packed dir is tracked.
+- Empty dirs above the `--depth` level are not saved (`--depth` 2 and more).
+- Always use the same source dir name for the same backup.
 
 ## Development
 
