@@ -93,9 +93,11 @@ Options must be given in the order shown by `eterremove --help`.
   dirs with a backslash in the name are not restored at all.
 - Names with a newline are not supported for the dirs packed into separate archives
   (the dirs at `--depth` level): update fails.
-- Files and dirs removed from the source are kept in the backup, and restored, when they are
-  above the `--depth` level (whole packed dirs and files in the `root` archive).
-  Removing inside a packed dir is tracked.
+- Files and dirs removed from the source are marked as removed in the backup on the next update
+  (older states are still available with `--rollback`). A removed dir which is excluded with
+  `--exclude` keeps its last backup.
+- With `--singlearchive` every packed dir is a separate zpaq version, so `--rollback N` counts
+  these versions, not updates; use `--rollback DATE` there.
 - Dirs above the `--depth` level which become empty only due to `--exclude` are not saved.
 - With `--followlinks` owner/group and special files inside the linked dirs are not saved.
 - `compare` checks contents, sizes, dates and permissions of files. It does not check owner/group,
