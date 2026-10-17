@@ -201,7 +201,6 @@ setup()
 }
 
 @test "extract fails with a wrong password" {
-	known_bug "extract ignores zpaq errors"
 	create_tree sample
 	"$ETERPACK" update --password secret sample packed
 	run ! "$ETERPACK" extract --password wrong packed unpacked
@@ -286,6 +285,22 @@ setup()
 
 @test "extract fails for a nonexistent backup" {
 	run ! "$ETERPACK" extract nonexistent unpacked
+}
+
+@test "extract, compare and check fail for a dir without archives" {
+	mkdir empty sample
+	run ! "$ETERPACK" extract empty unpacked
+	run ! "$ETERPACK" compare empty sample
+	run ! "$ETERPACK" check empty
+}
+
+@test "extract fails for a broken archive" {
+	create_tree sample
+	"$ETERPACK" update sample packed
+	local part
+	part="$(ls packed/td-*/td-*.000001.zpaq | head -n1)"
+	dd if=/dev/urandom of="$part" bs=1 count=4096 seek=1024 conv=notrunc 2>/dev/null
+	run ! "$ETERPACK" extract packed unpacked
 }
 
 @test "unknown command fails" {
