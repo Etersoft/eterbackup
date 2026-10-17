@@ -16,5 +16,6 @@ TTY=''
 
 exec docker run --rm $TTY \
 	-e RUN_KNOWN_BUGS \
+	--tmpfs /tmp:exec,size=4g \
 	-v "$TOPDIR:/src:ro" \
 	"$IMAGE" bats "$@"
