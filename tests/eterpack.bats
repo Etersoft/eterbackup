@@ -165,6 +165,15 @@ setup()
 	assert_same_tree sample unpacked
 }
 
+@test "source and backup paths with spaces" {
+	create_tree "my sample"
+	"$ETERPACK" update "my sample" "my packed"
+	[ -d "my packed/stage0" ]
+	"$ETERPACK" check "my packed"
+	"$ETERPACK" extract "my packed" "my unpacked"
+	assert_same_tree "my sample" "my unpacked"
+}
+
 @test "--followlinks packs dirs behind symlinks" {
 	known_bug "dirs are extracted under the link target names, not the link names"
 	create_tree sample
@@ -208,7 +217,6 @@ setup()
 }
 
 @test "--password with spaces" {
-	known_bug "password is passed to zpaq unquoted"
 	create_tree sample
 	"$ETERPACK" update --password "my secret" sample packed
 	"$ETERPACK" extract --password "my secret" packed unpacked
