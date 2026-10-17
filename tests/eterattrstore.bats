@@ -98,6 +98,52 @@ create_special_tree()
 	assert_same_tree sample unpacked
 }
 
+@test "eterpack does not write to the source dir" {
+	require_zpaq
+	create_special_tree
+	chmod a-w sample
+	"$ETERPACK" update sample packed
+	"$ETERPACK" update --depth 0 sample packed0
+	chmod u+w sample
+	"$ETERPACK" extract packed unpacked
+	"$ETERPACK" extract packed0 unpacked0
+	assert_same_tree sample unpacked
+	assert_same_tree sample unpacked0
+	[ -z "$(ls -A packed packed0 | grep -F .eterpack)" ]
+	chmod u+w unpacked unpacked0
+}
+
+@test "eterpack refuses a source with the reserved metafile names" {
+	require_zpaq
+	create_special_tree
+	local name
+	for name in .metadata .eterpack.special.files.pax .eterpack.follow ; do
+		touch "sample/$name"
+		run ! "$ETERPACK" update sample packed
+		[[ "$output" == *"reserved"* ]]
+		rm "sample/$name"
+	done
+	touch sample/.metadata
+	"$ETERPACK" update --noattribute sample packed
+}
+
+@test "eterpack restores and updates backups made by the old eterpack" {
+	require_zpaq
+	create_special_tree
+	# the old eterpack packed the metadata files from the source root
+	(cd sample && "$ETERATTRSTORE" save)
+	"$ETERPACK" update --noattribute sample packed
+	(cd sample && "$ETERATTRSTORE" clear)
+	"$ETERPACK" extract packed unpacked
+	assert_same_tree sample unpacked
+	sleep 1
+	echo new >sample/rootfile
+	"$ETERPACK" update sample packed
+	"$ETERPACK" compare packed sample
+	"$ETERPACK" extract packed unpacked2
+	assert_same_tree sample unpacked2
+}
+
 @test "restore special files saved in the old ustar format" {
 	mkdir -p sample/dir
 	ln -s file sample/dir/link
@@ -108,6 +154,27 @@ create_special_tree()
 	(cd restored && "$ETERATTRSTORE" restore)
 	[ -L restored/dir/link ]
 	[ -p restored/dir/fifo ]
+}
+
+@test "save and restore with --metadir" {
+	create_special_tree
+	mkdir meta
+	(cd sample && "$ETERATTRSTORE" save --metadir "$BATS_TEST_TMPDIR/meta")
+	[ ! -e sample/.metadata ]
+	[ -s meta/.metadata ]
+	[ -s meta/.eterpack.special.files.pax ]
+	mkdir restored
+	mkdir restored/dir
+	echo data >restored/dir/file
+	echo exec >restored/dir/script
+	echo root >restored/rootfile
+	touch -r sample/dir/file restored/dir/file
+	touch -r sample/dir/script restored/dir/script
+	touch -r sample/rootfile restored/rootfile
+	(cd restored && "$ETERATTRSTORE" restore --metadir "$BATS_TEST_TMPDIR/meta")
+	"$ETERATTRSTORE" clear --metadir "$BATS_TEST_TMPDIR/meta"
+	[ ! -e meta ]
+	assert_same_tree sample restored
 }
 
 @test "unknown command fails" {

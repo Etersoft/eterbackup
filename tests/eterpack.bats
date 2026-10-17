@@ -288,16 +288,65 @@ check_removed()
 	"$ETERPACK" check packed
 	"$ETERPACK" extract packed unpacked
 	for d in sample/td-* ; do
-		# symlinks inside linked dirs are not saved (eterattrstore does not follow links)
-		diff -r --no-dereference -x '.tfL-*' "$d" "unpacked/links-$(basename "$d")"
+		[ -d "unpacked/links-$(basename "$d")" ] && [ ! -L "unpacked/links-$(basename "$d")" ]
+		assert_same_tree "$d" "unpacked/links-$(basename "$d")"
 	done
+}
+
+@test "--followlinks keeps attributes and special files inside linked dirs" {
+	mkdir -p real/dir/sub sample
+	echo data >real/dir/file
+	chgrp "$TEST_GROUP" real/dir/file
+	chmod 0640 real/dir/file
+	chmod 0700 real/dir/sub
+	mkfifo real/dir/sub/fifo
+	ln -s file real/dir/link
+	ln -s ../real/dir sample/linked
+	echo root >sample/rootfile
+	ln -s rootfile sample/rootlink
+	"$ETERPACK" update --followlinks sample packed
+	"$ETERPACK" extract packed unpacked
+	[ ! -L unpacked/linked ]
+	assert_same_tree real/dir unpacked/linked
+	[ -L unpacked/rootlink ]
+	cmp sample/rootfile unpacked/rootfile
+}
+
+@test "metafiles of removed links and special files are marked as removed" {
+	mkdir -p real/dir sample/dir
+	echo data >real/dir/file
+	mkfifo sample/dir/fifo
+	ln -s ../real/dir sample/linked
+	"$ETERPACK" update --followlinks sample packed
+	run -0 zpaq list "packed/root.??????.zpaq"
+	[[ "$output" == *".eterpack.follow/"* ]]
+	[[ "$output" == *".eterpack.special.files.pax"* ]]
+	rm sample/linked sample/dir/fifo
+	sleep 1
+	"$ETERPACK" update --followlinks sample packed
+	run -0 zpaq list "packed/root.??????.zpaq"
+	[[ "$output" != *".eterpack.follow"* ]]
+	[[ "$output" != *".eterpack.special.files.pax"* ]]
+	[[ "$output" == *".metadata"* ]]
+	"$ETERPACK" extract packed unpacked
+	assert_same_tree sample unpacked
+}
+
+@test "--followlinks with --depth 2 packs root files of linked dirs" {
+	create_tree sample
+	mkdir sample-links
+	ln -s ../sample sample-links/linked
+	"$ETERPACK" update --followlinks --depth 2 sample-links packed
+	"$ETERPACK" extract packed unpacked
+	[ ! -L unpacked/linked ]
+	assert_same_tree sample unpacked/linked
 }
 
 @test "--password encrypts the archive" {
 	create_tree sample
 	"$ETERPACK" update --password secret sample packed
 	[ -e packed/.encrypted ]
-	run ! zpaq list packed/root.??????.zpaq
+	run ! zpaq list "packed/root.??????.zpaq"
 	"$ETERPACK" check --password secret packed
 	"$ETERPACK" extract --password secret packed unpacked
 	assert_same_tree sample unpacked
