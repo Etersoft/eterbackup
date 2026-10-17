@@ -78,12 +78,14 @@ Options must be given in the order shown by `eterremove --help`.
 ## Development
 
 ```sh
-./check_code.sh                  # checkbashisms and shellcheck
-cd tests && ./run-all-tests.sh   # run all tests
-cd tests && ./eterpack-test.sh   # run a single test
+./check_code.sh                                  # checkbashisms and shellcheck
+make check                                       # run all tests in a docker container
+tests/run-in-container.sh tests/eterpack.bats    # run one test file
 ```
 
-The tests use `/tmp/eterbackup-TD` and require a `remotelogin` group for the current user.
+The tests use [bats-core](https://github.com/bats-core/bats-core) and run in an ALT Linux
+container (`tests/container/Dockerfile`) with zpaq 7.15, metastore, pax and rsync installed.
+Tests for known, not yet fixed bugs are skipped unless `RUN_KNOWN_BUGS=1` is set.
 
 Read all about zpaq here:
 http://encode.ru/threads/456-zpaq-updates

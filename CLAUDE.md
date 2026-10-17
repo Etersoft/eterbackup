@@ -19,11 +19,16 @@ Runtime dependencies: `zpaq` (**exactly v7.15**; `eterpack` refuses to run with 
 ./check_code.sh                 # checkbashisms + shellcheck on bin/* (with project exclusions)
 ./check_code.sh bin/eterpack    # shellcheck a single file
 
-cd tests && ./run-all-tests.sh  # run all tests; prints "X is successful/FAILED" per script
-cd tests && ./eterpack-test.sh  # run a single test (verbose output)
+tests/run-in-container.sh                                   # all tests (same as `make check`)
+tests/run-in-container.sh tests/eterpack-exclude.bats       # one file
+tests/run-in-container.sh -f 'password' tests               # tests matching a regex
+RUN_KNOWN_BUGS=1 tests/run-in-container.sh                  # also run known bug tests
+BASE=alt:p11 tests/run-in-container.sh                      # other base image
 ```
 
-Tests must be run **from `tests/`**. They call `../bin/*`, source `eterbackup-functions.sh`, work in `/tmp/eterbackup-TD` (wiped at start, left behind afterwards), and need real `zpaq` 7.15, `metastore` and `pax`. `create_tree` runs `chgrp remotelogin`, so the user must belong to a group named `remotelogin`, or those test fixtures will fail. Each test exits non-zero through `fatal` when it fails.
+**Run tests only in the container, never on the host.** `run-in-container.sh` builds `tests/container/Dockerfile` (ALT with zpaq 7.15, metastore, pax, rsync, pylog2rotate, eepm, bats) and runs bats as the non-root user `tester`, with the repo mounted read-only at `/src`. Use the real path (`/srv/lav/...`); the docker daemon cannot follow the `/home/lav/Projects` symlink.
+
+Tests use bats-core (`tests/*.bats`, helpers in `tests/test_helper.bash`). Each test works in its own `$BATS_TEST_TMPDIR`. `assert_same_tree` compares contents plus type, mode, owner, group, link target and file mtime in whole seconds, because zpaq keeps seconds only and dir mtimes are not restored. `TEST_GROUP` (set in the image) is a secondary group, so the tests can check that group ownership is restored. Tests for confirmed but unfixed bugs call `known_bug "..."` and are skipped unless `RUN_KNOWN_BUGS` is set. When you fix such a bug, remove the `known_bug` line.
 
 Installation: `make install DESTDIR=... bindir=... mandir=...` copies `bin/*` (files without `-` in the name) and `man/*`.
 
@@ -36,7 +41,7 @@ Archive layout produced by `eterpack update SRC DST [--depth N]`:
 - After an update, `DST` also holds `dirs.list`, `files.list`, `.last-updated`, and `.status`/`.status_ext` while a run is in progress or after it fails. The `status` command reads these files. When zpaq reports "archive exists", the broken part is renamed to `.broken` so that the next run can continue.
 - `extract`/`compare`/`test` find every `*.000000.zpaq` and run zpaq on the `??????` glob, never on a single part.
 
-`--exclude` (can be repeated, stored in the `EXCLUDES` array): a value starting with `/` is a path relative to the source root. It skips that dir, or anything below it, or becomes a zpaq `-not` pattern when the excluded path lies inside a packed dir. A value without `/` matches a directory basename at the packing depth. The same matching rules are implemented in three places (`is_excluded_dir`/`list_dirs`, the loop in `update_dump`, and `update_archive`), so keep them in sync. The `eterpack-update-exclude*.sh` tests cover the combinations.
+`--exclude` (can be repeated, stored in the `EXCLUDES` array): a value starting with `/` is a path relative to the source root. It skips that dir, or anything below it, or becomes a zpaq `-not` pattern when the excluded path lies inside a packed dir. A value without `/` matches a directory basename at the packing depth. The same matching rules are implemented in three places (`is_excluded_dir`/`list_dirs`, the loop in `update_dump`, and `update_archive`), so keep them in sync. `tests/eterpack-exclude.bats` covers the combinations.
 
 Filenames with spaces and special characters must work. Quote paths and use arrays for zpaq argument lists (see `create_spaces_tree`/`create_symbols_tree` and the `*-spaces` tests). `$CHECKSUM`, `$PASSWORDARG`, `$ROLLBACK` and `$FOLLOWLINKS` are left unquoted on purpose, because they may be empty or contain several words.
 
