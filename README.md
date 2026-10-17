@@ -99,6 +99,8 @@ Options must be given in the order shown by `eterremove --help`.
   above the `--depth` level (whole packed dirs and files in the `root` archive).
   Removing inside a packed dir is tracked.
 - Empty dirs above the `--depth` level are not saved (`--depth` 2 and more).
+- `compare` checks contents, sizes, dates and permissions of files. It does not check owner/group,
+  special files and dir dates, and does not report new files above the `--depth` level.
 - Always use the same source dir name for the same backup.
 
 ## Development
