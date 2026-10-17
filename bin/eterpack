@@ -140,6 +140,18 @@ list_rootfiles()
 	#MINDEPTH=1 MAXDEPTH=$MAXDEPTH list_dirs
 }
 
+# empty dirs above the packing depth (they are not in any dir archive)
+list_empty_dirs()
+{
+	local reldir
+	[ "$MAXDEPTH" -gt 1 ] || return 0
+	find "$BACKUPDIR" -mindepth 1 -maxdepth "$((MAXDEPTH-1))" -type d -empty -printf "%P\n" | \
+	while read -r reldir ; do
+		is_excluded_dir "$reldir" "$(basename -- "$reldir")" && continue
+		echo "$reldir"
+	done
+}
+
 attrstore()
 {
 	$PROGDIR/eterattrstore "$@"
@@ -296,7 +308,7 @@ done || return
 # TODO: не поддерживается удаление файлов
 local FILES=()
 # Note: ./ protects names started with '-'
-mapfile -t FILES < <(list_rootfiles | sed -e 's|^-|./-|')
+mapfile -t FILES < <( (list_rootfiles ; list_empty_dirs) | sed -e 's|^-|./-|')
 
 # workaround for correct internal path
 cd "$BACKUPDIR" || exit
