@@ -33,7 +33,7 @@ print_message()
 {
 	local DESC="$1"
 	shift
-	echo "$DESC in $(basename $0): $@"
+	echo "$DESC in $(basename "$0"): $*"
 }
 
 # Print error message and stop the program

@@ -41,7 +41,7 @@ print_message()
 {
 	local DESC="$1"
 	shift
-	echo "$DESC in $(basename $0): $@"
+	echo "$DESC in $(basename "$0"): $*"
 }
 
 # Print error message and stop the program
@@ -84,7 +84,7 @@ get_status()
 next_number()
 {
 	assert_var ROTATEDIR
-	local OLDNUM=$(ls -d -v -1 "$ROTATEDIR/$NUMPREFIX"* 2>/dev/null | tail -n1)
+	local OLDNUM="$(ls -d -v -1 "$ROTATEDIR/$NUMPREFIX"* 2>/dev/null | tail -n1)"
 	OLDNUM=$(basename "$OLDNUM" | sed -e "s|$NUMPREFIX||g")
 
 	if [ -z "$OLDNUM" ] || [ "$OLDNUM" = "0" ] ; then
@@ -130,7 +130,7 @@ thin_log2rotate_dir()
 	# TODO: check --fuzz
 	OPTIONS=
 	[ -n "$FORCE" ] && OPTIONS="--unsafe"
-	DIRS=$(ls -1 -d ????-??-?? | sort | a= log2rotate --delete $OPTIONS)
+	DIRS=$(ls -1 -d -- ????-??-?? | sort | a='' log2rotate --delete $OPTIONS)
 	echo "Follow dirs may be deleted:"
 	if [ -n "$DEBUG" ] ; then
 		echo
@@ -144,7 +144,7 @@ thin_log2rotate_dir()
 	fi
 
 	set_status ""
-	cd - >/dev/null
+	cd - >/dev/null || exit
 	echo "Done."
 
 }
@@ -186,7 +186,7 @@ rotate_dir()
 
 update_dir()
 {
-	local STATUS=$(get_status)
+	local STATUS="$(get_status)"
 	[ -n "$STATUS" ] && [ "$STATUS" != "sync" ] && fatal "$0 already in $STATUS process..."
 
 	# if rotate_dir will fail, we will exit via fatal

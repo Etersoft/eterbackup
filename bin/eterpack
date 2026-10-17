@@ -167,7 +167,7 @@ update_archive()
 		echo "Save attrs and special files..."
 		cd "$BACKUPDIR" || exit
 		attrstore save || fatal "Can't save attributes and special files"
-		cd - >/dev/null
+		cd - >/dev/null || exit
 	fi
 
 	local EXCLUDEARG=()
@@ -181,12 +181,12 @@ update_archive()
 	echo "Packing single $BACKUPDIR ..."
 	mkdir -p "$DUMPDIR/"
 	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "./$bdir" -to . "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "./$bdir" -to . "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; exit 1 ; }
-	cd - >/dev/null
+	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "./$bdir" -to . "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || exit 1
+	cd - >/dev/null || exit
 
 	cd "$BACKUPDIR" || fatal
 	attrstore clear
-	cd - >/dev/null
+	cd - >/dev/null || exit
 
 	if [ -n "$EXECUTEAFTER" ] ; then
 		$EXECUTEAFTER "$DUMPDIR/$BASEPACK.$STN.zpaq" || fatal "Executed command $EXECUTEAFTER failed"
@@ -342,7 +342,7 @@ while read -r reldir ; do
 	fi
 	[ "$res" = "0" ] || fatal_status "unrecoverable error" "Error during packaging to $archname"
 
-	cd - >/dev/null
+	cd - >/dev/null || exit
 
 	if [ -n "$EXECUTEAFTER" ] ; then
 		$EXECUTEAFTER "$archname" || fatal "Executed command $EXECUTEAFTER failed"
@@ -390,7 +390,7 @@ if [ -n "${FILES[*]}" ] ; then
 	echo "Packing extra files ..."
 	# TODO: use -to for rename internal path
 	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - ; return 1 ; }
+	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || { cd - >/dev/null || exit ; return 1 ; }
 
 	attrstore clear
 
@@ -399,7 +399,7 @@ if [ -n "${FILES[*]}" ] ; then
 	fi
 fi
 
-cd - >/dev/null
+cd - >/dev/null || exit
 
 }
 
@@ -439,7 +439,7 @@ done || fatal "Can't extract from $DUMPDIR"
 		echo "Restore attrs ..."
 		attrstore restore
 		attrstore clear
-		cd - >/dev/null
+		cd - >/dev/null || exit
 	fi
 }
 
