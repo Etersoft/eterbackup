@@ -151,7 +151,7 @@ remove_old_files()
         [ -z "$NOTEST" ] && echo "Files older than $DAYSAGO below:"
 
         find "$REMOVEDIR" -depth -mindepth $DEPTH $DEPTHMAX \
-                ! -type d -mtime +"$DAYSAGO" ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMF
+                ! -type d -mtime +"$DAYSAGO" ! -name "$EXCLUDEDIR" -print0 | xargs -0 -r -- $CMD_RMF
 }
 
 remove_old_size_files()
@@ -188,7 +188,7 @@ remove_old_dirs()
 
         # TODO: check status (deferred until correct test)
         find "$REMOVEDIR" -depth -mindepth $DEPTH $DEPTHMAX \
-                -type d -mtime +"$DAYSAGO" ! -name "$EXCLUDEDIR" -print0 | xargs -0 -- $CMD_RMRF
+                -type d -mtime +"$DAYSAGO" ! -name "$EXCLUDEDIR" -print0 | xargs -0 -r -- $CMD_RMRF
 }
 
 
