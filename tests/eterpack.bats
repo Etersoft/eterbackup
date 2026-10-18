@@ -675,3 +675,49 @@ old_zpaq_add()
 	[ ! -e packed/.eterpack.compact.root ]
 	"$ETERPACK" update sample packed
 }
+
+@test "--exclude-from reads excludes from a file" {
+	create_tree sample
+	printf '%s\n' "# comment" "" "stage0" "/stage1/stage22" >excludes
+	"$ETERPACK" update --exclude-from excludes sample packed
+	"$ETERPACK" extract packed unpacked
+	[ ! -e unpacked/stage0 ]
+	[ ! -e unpacked/stage1/stage22 ]
+	[ -d unpacked/stage1/stage2 ]
+	run ! "$ETERPACK" update --exclude-from nonexistent sample packed
+}
+
+@test "info prints archives and their versions" {
+	create_tree sample
+	"$ETERPACK" update sample packed
+	sleep 1
+	change_tree sample
+	"$ETERPACK" update sample packed
+	run -0 "$ETERPACK" info packed
+	[[ "$output" == *"last updated at"* ]]
+	[[ "$output" == *"root: 2 versions"* ]]
+	[[ "$output" == *"/td-"*": 2 versions"*", 2 parts, "* ]]
+	run -0 "$ETERPACK" info --all packed
+	[[ "$output" == *"  1 20"*" +"* ]]
+	[[ "$output" == *"  2 20"*" +"* ]]
+	# encrypted archives need the password
+	"$ETERPACK" update --password secret sample packedp
+	run -0 "$ETERPACK" info packedp
+	[[ "$output" == *"can't list versions"* ]]
+	run -0 "$ETERPACK" info --password secret packedp
+	[[ "$output" == *"root: 1 versions"* ]]
+}
+
+@test "check fails when an archive of a dir from dirs.list is missing" {
+	create_tree sample
+	"$ETERPACK" update sample packed
+	"$ETERPACK" update --singlearchive sample packeds
+	"$ETERPACK" check packeds
+	"$ETERPACK" update --depth 0 sample packed0
+	"$ETERPACK" check packed0
+	local d
+	d="$(basename "$(ls -d sample/td-* | head -n1)")"
+	rm -r "packed/$d"
+	run ! "$ETERPACK" check packed
+	[[ "$output" == *"Missing archive for $d"* ]]
+}
