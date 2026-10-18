@@ -66,6 +66,7 @@ list_special_files()
 	local link
 	find . -depth "(" -type b -or -type c -or -type p -or -type l ")" -printf "%P\n"
 	print_followed | while read -r link ; do
+		[ -d "$link/" ] || continue
 		find "$link/" -depth -mindepth 1 "(" -type b -or -type c -or -type p -or -type l ")" -printf "%p\n"
 	done
 }
@@ -137,14 +138,83 @@ print_metafiles()
 	return 0
 }
 
+# print the followed dirs stored in FOLLOWDIR
+print_stored_followed()
+{
+	local pathfile link
+	[ -d "$FOLLOWDIR" ] || return 0
+	for pathfile in "$FOLLOWDIR"/*.path ; do
+		[ -s "$pathfile" ] || continue
+		read -r link <"$pathfile"
+		echo "$link"
+	done
+}
+
+# skip metastore lines for paths inside the followed dirs (they are compared separately,
+# and they are real dirs in a restored tree)
+skip_followed_metastore()
+{
+	awk -v list="$FOLLOWLIST" '
+		BEGIN { while (list != "" && (getline l < list) > 0) links[l] = 1 }
+		{ for (l in links) if (index($0, "./" l ":") == 1 || index($0, "./" l "/") == 1) next ; print }'
+}
+
+skip_added_removed()
+{
+	grep -v -E ':	(added|removed) *$'
+	return 0
+}
+
+# pax listing without dates (symlink dates are not restored), sorted
+list_pax()
+{
+	pax -v 2>/dev/null | grep -v '^pax: ' | sed -E \
+		-e 's/^([^ ]+) +[0-9]+ +([^ ]+) +([^ ]+) +(.*) [A-Z][a-z]{2} [ 0-9][0-9] ( [0-9]{4}|[0-9]{2}:[0-9]{2}) (.*)$/\1 \2 \3 \4 \6/' | \
+		sort -u
+}
+
+# compare the stored metadata with the current dir, print the differences
+# return 1 if there are differences
 compare_attrs()
 {
-	# TODO:
-	#[ -s "$PAXFILE" ] && echo "$PAXFILE"
+	local res=0 out link pathfile tmp
+	tmp="$(mktemp -d)" || return 1
+	FOLLOWLIST="$tmp/follow"
+	print_stored_followed >"$FOLLOWLIST"
+
+	# owner, group and mode (metastore does not compare mtime by default)
+	# added and removed files are skipped: the files are compared by zpaq, and excluded paths are not restored
 	if [ -s "$METAFILE" ] ; then
-		metastore -c -f "$METAFILE"
+		out="$(metastore -c -f "$METAFILE" | skip_followed_metastore | skip_added_removed)"
+		[ -n "$out" ] && echo "$out" && res=1
 	fi
-	return 0
+	if [ -d "$FOLLOWDIR" ] ; then
+		for pathfile in "$FOLLOWDIR"/*.path ; do
+			[ -s "$pathfile" ] || continue
+			read -r link <"$pathfile"
+			[ -s "${pathfile%.path}.metadata" ] || continue
+			out="$(cd "./$link/" && metastore -c -f "${pathfile%.path}.metadata" | skip_added_removed | sed -e "s|^\./|./$link/|")"
+			[ -n "$out" ] && echo "$out" && res=1
+		done
+	fi
+
+	# special files: type, owner, group, device numbers and link targets
+	if [ -s "$PAXFILE" ] ; then
+		list_pax <"$PAXFILE" >"$tmp/stored"
+	else
+		: >"$tmp/stored"
+	fi
+	# followed dirs are real dirs in a restored tree, so their files are listed twice
+	list_special_files | skip_followed | skip_excluded | sort -u | pax -wd -x sv4cpio 2>/dev/null | list_pax >"$tmp/current"
+	out="$(comm -23 "$tmp/stored" "$tmp/current" | sed -e 's|^|- |' ; comm -13 "$tmp/stored" "$tmp/current" | sed -e 's|^|+ |')"
+	if [ -n "$out" ] ; then
+		echo "Special files differ (- stored, + current):"
+		echo "$out"
+		res=1
+	fi
+
+	rm -rf "$tmp"
+	return $res
 }
 
 restore_attrs()
@@ -216,7 +286,7 @@ case $COMMAND in
 		echo "Commands:"
 		echo "	save       save attrs and spec. files"
 		echo "	restore    restore attrs and spec. files"
-		echo "	compare    show differences between stored and real metadata"
+		echo "	compare    show differences between stored and real metadata (exit 1 if they differ)"
 		echo "	metafiles  print list of created files with metainfo"
 		echo "	clear      remove files with metainfo"
 		echo

@@ -209,20 +209,28 @@ list_followed_links()
 	return 0
 }
 
+# extract the metafiles stored in the root archive (internal names have prefix $2) to dir $1
+extract_stored_metafiles()
+{
+	local outdir="$1" prefix="$2" name
+	local INNAMES=() OUTNAMES=()
+	for name in "${METANAMES[@]}" ; do
+		INNAMES+=("$prefix$name")
+		OUTNAMES+=("$outdir/$name")
+	done
+	# zpaq restores the stored dates
+	zpaq extract "$DUMPDIR/$BASEPACK.$STN.zpaq" "${INNAMES[@]}" -to "${OUTNAMES[@]}" "${PASSWORDARG[@]}" >/dev/null 2>&1
+	return 0
+}
+
 # set the stored date to the metafiles in dir $1 which are the same as in the root archive,
 # so zpaq does not add a new version for them (internal names have prefix $2)
 keep_stored_metadates()
 {
-	local metadir="$1" prefix="$2" stored name f
+	local metadir="$1" prefix="$2" stored f
 	[ -s "$DUMPDIR/$BASEPACK.$STZ.zpaq" ] || return 0
 	stored="$(mktemp -d "$DUMPDIR/.eterpack.tmp.XXXXXX")" || return 0
-	local INNAMES=() OUTNAMES=()
-	for name in "${METANAMES[@]}" ; do
-		INNAMES+=("$prefix$name")
-		OUTNAMES+=("$stored/$name")
-	done
-	# zpaq restores the stored dates
-	zpaq extract "$DUMPDIR/$BASEPACK.$STN.zpaq" "${INNAMES[@]}" -to "${OUTNAMES[@]}" "${PASSWORDARG[@]}" >/dev/null 2>&1
+	extract_stored_metafiles "$stored" "$prefix"
 	while read -r f ; do
 		[ -f "$stored/$f" ] && cmp -s "$metadir/$f" "$stored/$f" && touch -r "$stored/$f" "$metadir/$f"
 	done < <(cd "$metadir" && find . -type f -printf "%P\n")
@@ -607,6 +615,34 @@ compare_archive()
 		END { exit diff > 0 }'
 }
 
+# compare owner, group, mode and special files stored by eterattrstore with $DESTDIR
+compare_metadata()
+{
+	local metadir res=0
+	[ -s "$DUMPDIR/$BASEPACK.$STZ.zpaq" ] || return 0
+	metadir="$(mktemp -d)" || fatal
+	extract_stored_metafiles "$metadir" ""
+	# --depth 0 stores them with ./
+	[ -n "$(ls -A "$metadir")" ] || extract_stored_metafiles "$metadir" "./"
+	if [ -n "$(ls -A "$metadir")" ] ; then
+		echo
+		echo "Compare owner, group, mode and special files with $DESTDIR ..."
+		# skip special files in the excluded paths (exclude names can be at any depth here)
+		local ex
+		for ex in "${EXCLUDES[@]}" ; do
+			if rhas "$ex" "^/" ; then
+				clean_path "$ex"
+			else
+				find "$DESTDIR" -type d -name "$ex" -printf "%P\n"
+			fi
+		done >"$metadir.exclude"
+		(cd "$DESTDIR" && attrstore compare --metadir "$metadir" --exclude "$metadir.exclude") || res=1
+		rm -f "$metadir.exclude"
+	fi
+	rm -rf "$metadir"
+	return $res
+}
+
 compare_dump()
 {
 	local relfile res=0
@@ -634,8 +670,9 @@ compare_dump()
 			echo "Compare files from $relfile with $tdir ..."
 			compare_archive "$DUMPDIR/$relfile" "$tdir" || res=1
 		fi
-		# TODO: compare metadata (owner, group, special files)
 	done < <(find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g")
+
+	[ -n "$NOATTRIBUTE" ] || compare_metadata || res=1
 
 	echo
 	if [ "$res" = 0 ] ; then
