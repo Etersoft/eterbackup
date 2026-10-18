@@ -74,8 +74,8 @@ check_params()
         return 0
 }
 
-# TODO: правильное название
-remove_short_paths()
+# keep only the deepest paths: skip a path if the previous one is inside it
+keep_deepest_paths()
 {
         local path
         # Note! do not use local for prev, it sets in piped while
@@ -131,10 +131,10 @@ remove_empty_dirs()
 
         [ -z "$NOTEST" ] && echo "Empty directories to remove below:"
 
-        # clean empty dirs. we use remove_short_paths due remove_dir_upto will remove all dirs from sequence
+        # clean empty dirs. we use keep_deepest_paths due remove_dir_upto will remove all dirs from sequence
         local path
         find "$REMOVEDIR" -depth -mindepth 1 $DEPTHMAX -type d -cmin +$MPAUSE -empty ! -name "$EXCLUDEDIR" -print | \
-                remove_short_paths | while read -r path ; do
+                keep_deepest_paths | while read -r path ; do
                     remove_dir_upto "$path"
                 done
 
