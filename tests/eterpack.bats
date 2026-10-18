@@ -474,3 +474,75 @@ check_removed()
 	run ! "$ETERPACK" foo
 	run -0 "$ETERPACK" --help
 }
+
+# list archive parts with sizes
+list_parts()
+{
+	(cd "$1" && find . -name '*.zpaq' -printf '%P %s\n' | LC_ALL=C sort)
+}
+
+check_no_new_parts()
+{
+	create_tree sample
+	"$ETERPACK" update "$@" sample packed
+	local before
+	before="$(list_parts packed)"
+	"$ETERPACK" update "$@" sample packed
+	"$ETERPACK" update "$@" sample packed
+	[ "$(list_parts packed)" = "$before" ]
+	"$ETERPACK" extract packed unpacked
+	assert_same_tree sample unpacked
+}
+
+@test "updates without changes add no parts" {
+	check_no_new_parts
+}
+
+@test "updates without changes add no parts, --depth 0" {
+	check_no_new_parts --depth 0
+}
+
+@test "updates without changes add no parts, --depth 2" {
+	check_no_new_parts --depth 2
+}
+
+@test "updates without changes add no parts, --singlearchive" {
+	check_no_new_parts --singlearchive
+}
+
+@test "updates without changes add no parts, --noattribute" {
+	create_tree sample
+	"$ETERPACK" update --noattribute sample packed
+	local before
+	before="$(list_parts packed)"
+	"$ETERPACK" update --noattribute sample packed
+	[ "$(list_parts packed)" = "$before" ]
+}
+
+@test "updates without changes add no parts, --password" {
+	create_tree sample
+	"$ETERPACK" update --password secret sample packed
+	local before
+	before="$(list_parts packed)"
+	"$ETERPACK" update --password secret sample packed
+	[ "$(list_parts packed)" = "$before" ]
+	echo changed >sample/rootfile
+	"$ETERPACK" update --password secret sample packed
+	[ "$(list_parts packed)" != "$before" ]
+	"$ETERPACK" extract --password secret packed unpacked
+	assert_same_tree sample unpacked
+}
+
+@test "an update with changes adds parts and is restored" {
+	create_tree sample
+	"$ETERPACK" update sample packed
+	"$ETERPACK" update sample packed
+	local d
+	d="$(basename "$(ls -d sample/td-* | head -n1)")"
+	[ ! -e "packed/$d/$d.000002.zpaq" ]
+	echo changed >"sample/$d/new-file"
+	"$ETERPACK" update sample packed
+	[ -e "packed/$d/$d.000002.zpaq" ]
+	"$ETERPACK" extract packed unpacked
+	assert_same_tree sample unpacked
+}
