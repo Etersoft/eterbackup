@@ -1,5 +1,5 @@
 Name: eterbackup
-Version: 1.11
+Version: 1.12
 Release: alt1
 
 Summary: Etersoft backup tools for journaling backup
@@ -48,6 +48,11 @@ See detailed russian description here: http://wiki.etersoft.ru/Eterbackup
 #%_sysconfdir/bash_completion.d/erc
 
 %changelog
+* Sun Oct 18 2026 Vitaly Lipatov <lav@altlinux.ru> 1.12-alt1
+- eterpack: do not write metafiles to the source tree, save attrs inside followed links
+- tests: read-only source, reserved metafile names, old backups, --followlinks attributes
+- README, CLAUDE.md: describe metafiles location and drop fixed limitations
+
 * Sat Oct 17 2026 Vitaly Lipatov <lav@altlinux.ru> 1.11-alt1
 - etertimemachine: do not sync with --inplace (it changed files of the previous snapshot)
 - etertimemachine: fix --method number
