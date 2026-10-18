@@ -155,8 +155,12 @@ list_empty_dirs()
 # zpaq creates a part with an empty version (104 bytes) on every run
 zpaq_add()
 {
-	local zarch="$1" prev='' output res part
+	local zarch="$1" prev='' output res part num
 	shift
+	# without the index zpaq starts from part 1 again and fails with "archive exists" for it
+	if [ ! -e "$zarch" ] && [ -e "${zarch%."$STZ".zpaq}.$ST1.zpaq" ] ; then
+		fatal_status "unrecoverable error" "The index $zarch is missing, but the parts exist"
+	fi
 	if [ -s "$zarch" ] ; then
 		prev="$zarch.prev"
 		cp -p "$zarch" "$prev" || fatal "Can't copy $zarch"
@@ -164,8 +168,19 @@ zpaq_add()
 	output="$(mktemp)" || fatal
 	zpaq add "$@" -index "$zarch" 2>&1 | tee "$output"
 	res="${PIPESTATUS[0]}"
+	part="$(sed -n -e 's|^Creating \(.*\.zpaq\) at offset .*|\1|p' "$output")"
+	# zpaq numbers a new part by the versions in the index, so missed parts leave a gap
+	# and zpaq does not read the parts after it
+	# (without part 1 all the parts are moved away, zpaq supports it with the index)
+	num="$(echo "$part" | sed -n -e 's|.*\.0*\([0-9][0-9]*\)\.zpaq$|\1|p')"
+	if [ "$res" = "0" ] && [ -n "$num" ] && [ "$num" -gt 1 ] && \
+	   [ -e "${zarch%."$STZ".zpaq}.$ST1.zpaq" ] && \
+	   [ ! -e "$(printf '%s.%06d.zpaq' "${zarch%."$STZ".zpaq}" "$((num - 1))")" ] ; then
+		[ -n "$prev" ] && mv -f "$prev" "$zarch"
+		rm -f "$part" "$output"
+		fatal_status "unrecoverable error" "Parts before $part are missing (the index has more versions than the parts)"
+	fi
 	if [ "$res" = "0" ] && [ -n "$prev" ] && grep -q -x "0 +added, 0 -removed\." "$output" ; then
-		part="$(sed -n -e 's|^Creating \(.*\.zpaq\) at offset .*|\1|p' "$output")"
 		if [ -f "$part" ] ; then
 			# restore the index first: if we fail before removing the part,
 			# the next run gets "archive exists" for it and moves it to .broken
@@ -321,7 +336,7 @@ mark_removed_dirs()
 
 		echo
 		echo "Mark removed $reldir in $archname ..."
-		(cd "$emptydir" && zpaq add "$archname" "./$bdir" -to "$intname" "${PASSWORDARG[@]}" -index "$zarchname") || \
+		(cd "$emptydir" && zpaq_add "$zarchname" "$archname" "./$bdir" -to "$intname" "${PASSWORDARG[@]}") || \
 			fatal_status "unrecoverable error" "Can't mark removed $reldir in $archname"
 
 		if [ -n "$EXECUTEAFTER" ] ; then
