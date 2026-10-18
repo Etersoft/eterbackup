@@ -29,6 +29,20 @@ setup()
 	diff -r sample tm/last
 }
 
+@test "symlinks pointing outside the tree are kept by the first and the next updates" {
+	ln -s /etc/hostname sample/abs-link
+	ln -s ../../outside sample/dir/up-link
+	ln -s file sample/dir/rel-link
+	"$ETERTM" update sample tm
+	assert_same_tree sample tm/last
+	# new and changed links are synced by rsync
+	ln -s /etc/os-release sample/abs-link2
+	ln -sfn ../../changed sample/dir/up-link
+	"$ETERTM" update sample tm
+	assert_same_tree sample tm/last
+	[ "$(readlink "tm/$(date --rfc-3339=date)/dir/up-link")" = ../../outside ]
+}
+
 @test "update removes deleted files from last" {
 	"$ETERTM" update sample tm
 	rm sample/rootfile
