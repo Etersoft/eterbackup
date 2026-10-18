@@ -133,14 +133,10 @@ done
 
 list_rootfiles()
 {
-	# TODO: exclude? or it is in zpaq?
-	# TODO: not dirs from list_dirs
-	# Список файлов:
+	# Note: --exclude rules for root files are passed to zpaq as -not
 	# with -L, -xtype l is true for symlinks (zpaq skips them, eterattrstore saves them)
 	find "${FOLLOWLINKS[@]}" "$BACKUPDIR" -depth -maxdepth "$MAXDEPTH" -mindepth 1 -type f ! -xtype l -printf "%P\n"
-	# Список каталогов, чтобы запаковать пустые каталоги
-	# тут проблема: там могут быть ненужные вложенные каталоги
-	#MINDEPTH=1 MAXDEPTH=$MAXDEPTH list_dirs
+	# empty dirs are listed by list_empty_dirs
 }
 
 # empty dirs above the packing depth (they are not in any dir archive)
@@ -324,9 +320,6 @@ while read -r reldir ; do
 	done
 	[ -n "$skipdir" ] && continue
 
-	# TODO: удалённые каталоги будут незамечены и останутся.
-	# Создавать новый слой, копируя со старого, и оставляя тот старыми датами?
-
 	# zpaq does not support symlink, so workaround it
 	if [ -n "${FOLLOWLINKS[*]}" ] ; then
 		babsdir="$(basename -- "$(realpath "$BACKUPDIR/$reldir")")"
@@ -353,7 +346,6 @@ while read -r reldir ; do
 		local archname="$DUMPDIR/$BASEPACK.$STN.zpaq"
 		local zarchname="$DUMPDIR/$BASEPACK.$STZ.zpaq"
 	else
-		# FIXME: copy dir permissions
 		mkdir -p "$DUMPDIR/$reldir"
 
 		local archname="$DUMPDIR/$reldir/$bdir.$STN.zpaq"
@@ -394,10 +386,6 @@ while read -r reldir ; do
 	fi
 done || return
 
-# Получаем список файлов в корне
-# TODO: Здесь бы надо просто выключить рекурсию, но неизвестно как
-# Также неизвестно, как раскрыть
-# TODO: не поддерживается удаление файлов
 mark_removed_dirs
 
 local FILES=()
@@ -428,9 +416,6 @@ cd "$BACKUPDIR" || exit
 
 if [ -n "${FILES[*]}" ] ; then
 
-	#bdir="$(basename -- "$BACKUPDIR")"
-
-	# FIXME: copy dir permissions
 	mkdir -p "$DUMPDIR"
 
 	local EXCLUDEARG=()
@@ -471,7 +456,6 @@ mkdir -p "$DESTDIR" || fatal "Can't create output directory $DESTDIR"
 find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n" | sed -e "s|\.$STZ.zpaq$|.$STN.zpaq|g" | \
 while read -r relfile ; do
 	reldir="$(dirname -- "$relfile")"
-	# FIXME: copy dir permissions
 	# TODO: хранить структуру каталогов отдельно, сразу и проверка?
 
 	# workaround for root archive
@@ -714,7 +698,6 @@ case $COMMAND in
 		if [ "$MAXDEPTH" = "0" ] ; then
 			update_archive
 			done_status
-			# TODO: status
 			exit
 		fi
 
@@ -723,7 +706,6 @@ case $COMMAND in
 		list_dirs >"$DUMPDIR/dirs.list"
 		list_rootfiles >"$DUMPDIR/files.list"
 		done_status
-		# TODO: status
 	;;
 	repack)
 		fatal "do not realized"
