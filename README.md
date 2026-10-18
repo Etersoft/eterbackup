@@ -22,14 +22,15 @@ The goals of the eterpack tool:
 - multipart archives (one file or more per backup session)
 
 eterpack creates a separate zpaq archive for every directory at the given depth (`--depth`, 1 by default),
-and a `root` archive for the files above that depth. Every update appends a new part to each archive,
-so older states can be restored with `--rollback`.
+and a `root` archive for the files above that depth. Every update appends a new part to each archive
+with changes (a part without changes is not kept), so older states can be restored with `--rollback`.
 
 ```sh
 eterpack update /path/from /path/to        # create or update a backup
 eterpack restore /path/backup /path/to     # restore a backup
 eterpack compare /path/backup /path/to     # compare a backup with local files
 eterpack test /path/backup                 # test backup integrity
+eterpack compact /path/backup              # remove empty parts left by older eterpack versions
 eterpack status /path/backup               # print backup status
 ```
 
@@ -44,7 +45,7 @@ Main options:
 --noattribute        do not save owner/group and special files (zpaq still keeps permissions)
 --singlearchive      pack all subdirs into one archive
 --followlinks        follow symlinks for the primary dirs
---rollback N|DATE    (for restore) roll back to the N'th update, -N from the end, or to the date
+--rollback N|DATE    (for restore) roll back to the N'th version, -N from the end, or to the date
 ```
 
 
@@ -103,8 +104,15 @@ Options must be given in the order shown by `eterremove --help`.
 - Files and dirs removed from the source are marked as removed in the backup on the next update
   (older states are still available with `--rollback`). A removed dir which is excluded with
   `--exclude` keeps its last backup.
-- With `--singlearchive` every packed dir is a separate zpaq version, so `--rollback N` counts
-  these versions, not updates; use `--rollback DATE` there.
+- `--rollback N` counts the versions of every archive separately, and an archive gets a version
+  only when it has changes (with `--singlearchive` every packed dir is a separate version).
+  Use `--rollback DATE` to restore the whole backup as it was at some moment.
+- zpaq 7.15 can't remove old versions, so the space taken by changed and removed data is never
+  freed. Start a new backup dir to drop the history.
+- Never remove or truncate parts by hand: zpaq reads parts up to the first missed number, so the
+  later parts become invisible, and the next update continues the numbering after the gap.
+  Use `eterpack compact` to remove empty parts (left by eterpack before 1.13, 104 bytes each).
+  It renumbers the parts and so is not supported for encrypted backups.
 - Dirs above the `--depth` level which become empty only due to `--exclude` are not saved.
 - `compare` checks contents, sizes, dates and permissions of files. It does not check owner/group,
   special files and dir dates, and does not report new files above the `--depth` level.
