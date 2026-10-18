@@ -546,3 +546,88 @@ check_no_new_parts()
 	"$ETERPACK" extract packed unpacked
 	assert_same_tree sample unpacked
 }
+
+# add a version to the --depth 0 --noattribute backup like the old eterpack did
+old_zpaq_add()
+{
+	mkdir -p packed
+	zpaq add "packed/root.??????.zpaq" ./sample -to . -index packed/root.000000.zpaq >/dev/null
+}
+
+@test "compact removes empty parts and keeps all versions" {
+	# no symlinks and groups: the backup is made without attributes
+	mkdir -p sample/dir
+	echo data >sample/dir/file
+	echo first >sample/rootfile
+	old_zpaq_add
+	cp -a sample state1
+	old_zpaq_add
+	old_zpaq_add
+	sleep 1
+	echo second >sample/rootfile
+	old_zpaq_add
+	cp -a sample state2
+	old_zpaq_add
+	rm sample/rootfile
+	old_zpaq_add
+	old_zpaq_add
+	[ "$(stat -c %s packed/root.000002.zpaq)" = 104 ]
+	[ -e packed/root.000007.zpaq ]
+
+	"$ETERPACK" compact packed
+	[ -e packed/root.000003.zpaq ]
+	[ ! -e packed/root.000004.zpaq ]
+	[ -z "$(ls -A packed | grep -F .eterpack.compact)" ]
+	"$ETERPACK" check packed
+
+	"$ETERPACK" extract --noattribute packed unpacked
+	assert_same_tree sample unpacked
+	"$ETERPACK" extract --noattribute --rollback 1 packed unpacked1
+	assert_same_tree state1 unpacked1
+	"$ETERPACK" extract --noattribute --rollback 2 packed unpacked2
+	assert_same_tree state2 unpacked2
+
+	# nothing to do the second time, and the next update works
+	local before
+	before="$(list_parts packed)"
+	"$ETERPACK" compact packed
+	[ "$(list_parts packed)" = "$before" ]
+	echo third >sample/rootfile
+	"$ETERPACK" update --depth 0 --noattribute sample packed
+	[ -e packed/root.000004.zpaq ]
+	"$ETERPACK" extract --noattribute packed unpacked3
+	assert_same_tree sample unpacked3
+}
+
+@test "compact removes empty parts of dir archives" {
+	create_tree sample
+	"$ETERPACK" update sample packed
+	local d
+	d="$(basename "$(ls -d sample/td-* | head -n1)")"
+	# the old eterpack added an empty version on every update
+	(cd sample && zpaq add "../packed/$d/$d.??????.zpaq" "./$d" -to "$d" -index "../packed/$d/$d.000000.zpaq" >/dev/null)
+	[ "$(stat -c %s "packed/$d/$d.000002.zpaq")" = 104 ]
+	"$ETERPACK" compact packed
+	[ ! -e "packed/$d/$d.000002.zpaq" ]
+	"$ETERPACK" extract packed unpacked
+	assert_same_tree sample unpacked
+}
+
+@test "compact refuses encrypted backups" {
+	create_tree sample
+	"$ETERPACK" update --password secret sample packed
+	run ! "$ETERPACK" compact packed
+	[[ "$output" == *"ncrypted"* ]]
+}
+
+@test "update refuses a backup with an interrupted compact" {
+	create_tree sample
+	"$ETERPACK" update sample packed
+	mkdir packed/.eterpack.compact.root
+	run ! "$ETERPACK" update sample packed
+	[[ "$output" == *"compact"* ]]
+	# compact without the .ready mark starts again
+	"$ETERPACK" compact packed
+	[ ! -e packed/.eterpack.compact.root ]
+	"$ETERPACK" update sample packed
+}
