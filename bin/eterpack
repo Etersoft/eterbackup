@@ -866,6 +866,16 @@ while true ; do
 		shift
 		;;
 
+	--exclude-from)
+		shift
+		[ -r "$1" ] || fatal "Can't read exclude file '$1'"
+		while IFS= read -r ex || [ -n "$ex" ] ; do
+			# skip empty lines and comments
+			[ -z "$ex" ] || rhas "$ex" "^#" || EXCLUDES+=("$ex")
+		done <"$1"
+		shift
+		;;
+
 	--execute)
 		shift
 		EXECUTEAFTER="$1"
@@ -1035,6 +1045,7 @@ case $COMMAND in
 		echo "Options:"
 		echo "	--depth N          - set depth for subdirs (1 by default) (update only)"
 		echo "	--exclude name     - exclude dir 'name' from packing (full path or level dir name), can be repeated"
+		echo "	--exclude-from file - read --exclude values from file (one per line, # starts a comment)"
 		echo "	--execute command  - execute 'command' after every archive"
 		echo "	--checksum         - force checking file contains, not date only"
 		echo "	--password         - use password for encryption/decryption"
