@@ -5,11 +5,6 @@
 
 EXCL=-eSC2086,SC2039,SC3043,SC2034,SC2068,SC2155
 
-# TODO:
-# SC2154: pkg_filenames is referenced but not assigned.
-# SC2002: Useless cat.
-EXCL="$EXCL,SC2154,SC2002"
-
 # style and info only
 EXCL="$EXCL,SC2001,SC2004,SC2012,SC2317"
 
