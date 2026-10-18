@@ -697,7 +697,25 @@ test_dump()
 		zpaq extract "$DUMPDIR/$relfile" -test "${PASSWORDARG[@]}" || exit
 	done || return
 
-	# TODO: add checking by dirs.lists (correct structure)
+	check_dirs_list
+}
+
+# check that every dir from dirs.list (the dirs packed by the last update) has its archive
+# (or is stored in the root archive with --singlearchive)
+check_dirs_list()
+{
+	local reldir rootnames='' res=0
+	[ -s "$DUMPDIR/dirs.list" ] || return 0
+	echo
+	echo "Checking the archives for dirs from dirs.list ..."
+	[ -s "$DUMPDIR/$BASEPACK.$STZ.zpaq" ] && rootnames="$(list_archive_names "$DUMPDIR/$BASEPACK.$STN.zpaq")"
+	while read -r reldir ; do
+		[ -s "$DUMPDIR/$reldir/$(basename -- "$reldir").$STZ.zpaq" ] && continue
+		printf '%s\n' "$rootnames" | grep -q -x -F -e "$reldir" -e "./$reldir" && continue
+		echo "Missing archive for $reldir"
+		res=1
+	done <"$DUMPDIR/dirs.list"
+	return $res
 }
 
 # move the compacted parts from $1 (with .ready file) to the archive with base path $2
