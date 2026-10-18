@@ -3,7 +3,7 @@ ARG BASE=alt:sisyphus
 FROM ${BASE}
 
 RUN apt-get update && \
-    apt-get install -y zpaq metastore pax rsync pylog2rotate eepm bats \
+    apt-get install -y zpaq metastore pax rsync pylog2rotate eepm bats dash \
         diffutils findutils coreutils util-linux && \
     apt-get clean
 

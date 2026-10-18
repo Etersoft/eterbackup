@@ -1,7 +1,8 @@
 #!/bin/sh
 # Build the test image and run bats tests inside the container.
 # Usage: tests/run-in-container.sh [bats args]   (default: all tests/*.bats)
-# Env: BASE=alt:p11 to use another base image, RUN_KNOWN_BUGS=1 to run known bug tests
+# Env: BASE=alt:p11 to use another base image, RUN_KNOWN_BUGS=1 to run known bug tests,
+#      TEST_SH=dash to run the POSIX sh scripts with dash
 
 TOPDIR="$(cd "$(dirname "$0")/.." && pwd -P)"
 BASE="${BASE:-alt:sisyphus}"
@@ -16,6 +17,7 @@ TTY=''
 
 exec docker run --rm $TTY \
 	-e RUN_KNOWN_BUGS \
+	-e TEST_SH \
 	--tmpfs /tmp:exec,size=4g \
 	-v "$TOPDIR:/src:ro" \
 	"$IMAGE" bats "$@"

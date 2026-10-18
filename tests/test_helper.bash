@@ -8,6 +8,19 @@ ETERREMOVE="$BINDIR/eterremove"
 ETERTM="$BINDIR/etertimemachine"
 ETERATTRSTORE="$BINDIR/eterattrstore"
 
+# TEST_SH=dash runs the POSIX sh scripts with this shell (eterpack still calls eterattrstore by its #!/bin/sh)
+if [ -n "$TEST_SH" ] ; then
+	SHWRAPDIR="$BATS_RUN_TMPDIR/shwrap"
+	mkdir -p "$SHWRAPDIR"
+	for _script in etertimemachine eterremove eterattrstore ; do
+		printf '#!/bin/sh\nexec %s %s "$@"\n' "$TEST_SH" "$BINDIR/$_script" >"$SHWRAPDIR/$_script"
+		chmod a+x "$SHWRAPDIR/$_script"
+	done
+	ETERREMOVE="$SHWRAPDIR/eterremove"
+	ETERTM="$SHWRAPDIR/etertimemachine"
+	ETERATTRSTORE="$SHWRAPDIR/eterattrstore"
+fi
+
 # secondary group to check that group ownership is saved and restored
 TEST_GROUP="${TEST_GROUP:-$(id -gn)}"
 
