@@ -157,7 +157,6 @@ rotate_dir()
 	# TODO: what about continue rotate process?
 	[ -n "$(get_status)" ] && fatal "$0 already in $(get_status) process..."
 
-	set_status "rotate"
 	MARK=$(get_mark $METHOD)
 	[ -n "$MARK" ] || fatal "Can't get dir name for rotating"
 
@@ -175,6 +174,7 @@ rotate_dir()
 	fi
 
 	echo "Rotating $ROTATEDIR/$LAST..."
+	set_status "rotate"
 	cp -al "$ROTATEDIR/$LAST" "$ROTATEDIR/$MARK.tmp" || fatal "Can't copy with hard links to $ROTATEDIR/$MARK.tmp"
 
 	mv "$ROTATEDIR/$LAST" "$ROTATEDIR/$MARK" || fatal "Can't mv to $ROTATEDIR/$MARK"
