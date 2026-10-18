@@ -547,6 +547,50 @@ check_no_new_parts()
 	assert_same_tree sample unpacked
 }
 
+@test "update refuses an archive without the index and keeps its parts" {
+	create_tree sample
+	"$ETERPACK" update sample packed
+	local d
+	d="$(basename "$(ls -d sample/td-* | head -n1)")"
+	rm "packed/$d/$d.000000.zpaq"
+	touch "sample/$d/new-file"
+	run ! "$ETERPACK" update sample packed
+	[[ "$output" == *"index"*"missing"* ]]
+	[ -e "packed/$d/$d.000001.zpaq" ]
+	[ -z "$(find packed -name '*.broken')" ]
+}
+
+@test "update refuses to add a part after a gap" {
+	create_tree sample
+	"$ETERPACK" update sample packed
+	local d
+	d="$(basename "$(ls -d sample/td-* | head -n1)")"
+	echo changed >"sample/$d/new-file"
+	"$ETERPACK" update sample packed
+	# the last part is lost
+	rm "packed/$d/$d.000002.zpaq"
+	echo changed again >"sample/$d/new-file"
+	run ! "$ETERPACK" update sample packed
+	[[ "$output" == *"missing"* ]]
+	[ ! -e "packed/$d/$d.000003.zpaq" ]
+}
+
+@test "update works when the parts are moved away and only the index is kept" {
+	create_tree sample
+	export PACKEDDIR="$BATS_TEST_TMPDIR/packed" MOVEDDIR="$BATS_TEST_TMPDIR/moved"
+	"$ETERPACK" update --execute "$BATS_TEST_DIRNAME/move-parts.sh" sample packed
+	[ -z "$(find packed -name '*.000001.zpaq')" ]
+	local d
+	d="$(basename "$(ls -d sample/td-* | head -n1)")"
+	echo changed >"sample/$d/new-file"
+	"$ETERPACK" update --execute "$BATS_TEST_DIRNAME/move-parts.sh" sample packed
+	[ -e "moved/$d/$d.000002.zpaq" ]
+	# put the parts back and restore
+	cp -a moved/. packed/
+	"$ETERPACK" extract packed unpacked
+	assert_same_tree sample unpacked
+}
+
 # add a version to the --depth 0 --noattribute backup like the old eterpack did
 old_zpaq_add()
 {
