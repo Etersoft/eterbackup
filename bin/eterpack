@@ -627,6 +627,109 @@ test_dump()
 	# TODO: add checking by dirs.lists (correct structure)
 }
 
+# move the compacted parts from $1 (with .ready file) to the archive with base path $2
+swap_compacted()
+{
+	local tmp="$1" base="$2" count n p
+	read -r count <"$tmp/.ready" || fatal "Can't read $tmp/.ready"
+	for ((n = 1; n <= count; n++)) ; do
+		p="$(printf '%s.%06d.zpaq' "$(basename -- "$base")" "$n")"
+		[ -e "$tmp/$p" ] || continue
+		# the part is not renumbered
+		if [ "$tmp/$p" -ef "$(dirname -- "$base")/$p" ] ; then
+			rm -f "$tmp/$p"
+			continue
+		fi
+		mv -f "$tmp/$p" "$(dirname -- "$base")/$p" || fatal "Can't move $tmp/$p"
+	done
+	# remove the rest old parts
+	for ((n = count + 1; ; n++)) ; do
+		p="$(printf '%s.%06d.zpaq' "$base" "$n")"
+		[ -e "$p" ] || break
+		rm -f "$p" || fatal "Can't remove $p"
+	done
+	mv -f "$tmp/index" "$base.$STZ.zpaq" || fatal "Can't move $tmp/index"
+	rm -rf "$tmp"
+}
+
+# remove empty parts (with versions without changes) of archive with index $1 and renumber the rest
+compact_archive()
+{
+	local zarch="$1" base name tmp n p size
+	base="${zarch%."$STZ".zpaq}"
+	name="$(basename -- "$base")"
+	tmp="$(dirname -- "$base")/.eterpack.compact.$name"
+
+	if [ -d "$tmp" ] ; then
+		if [ -s "$tmp/.ready" ] ; then
+			echo "Finish interrupted compact of $base ..."
+			swap_compacted "$tmp" "$base"
+			return
+		fi
+		rm -rf "$tmp"
+	fi
+
+	local parts=()
+	for ((n = 1; ; n++)) ; do
+		p="$(printf '%s.%06d.zpaq' "$base" "$n")"
+		[ -e "$p" ] || break
+		parts+=("$p")
+	done
+	# shellcheck disable=SC2206 # glob is wanted here
+	local all=("$base".$STN.zpaq)
+	if [ "${#all[@]}" != "$((${#parts[@]} + 1))" ] ; then
+		info "Skip $base: there is a gap in the part numbers"
+		return 1
+	fi
+
+	# versions without changes
+	local list empty=()
+	list="$(zpaq list "$base.$STN.zpaq" -all 6 2>&1)" || { info "Skip $base: can't list it" ; return 1 ; }
+	mapfile -t empty < <(echo "$list" | sed -n -E -e 's|^- .* 0*([0-9]+)/ \+0 -0 -> 104$|\1|p')
+
+	# 0 bytes parts have no versions
+	local keep=() v=0 dropped=0
+	for p in "${parts[@]}" ; do
+		size="$(stat -c %s -- "$p")"
+		if [ "$size" != "0" ] ; then
+			v=$((v + 1))
+			if [ "$size" != "104" ] || ! printf '%s\n' "${empty[@]}" | grep -q -x -F -e "$v" ; then
+				keep+=("$p")
+				continue
+			fi
+		fi
+		dropped=$((dropped + 1))
+	done
+	[ "$dropped" = "0" ] && return 0
+
+	mkdir "$tmp" || fatal "Can't create $tmp"
+	n=0
+	for p in "${keep[@]}" ; do
+		n=$((n + 1))
+		ln -- "$p" "$tmp/$(printf '%s.%06d.zpaq' "$name" "$n")" || fatal "Can't link $p"
+	done
+	(cd "$tmp" && zpaq extract "$tmp/$name.$STN.zpaq" -index "$tmp/index" >/dev/null) || fatal "Can't create the index for $base"
+	# check the result has all versions with changes
+	local versions
+	versions="$(zpaq list "$tmp/$name.$STN.zpaq" -all 6 2>/dev/null | grep -c -E '^- .* [0-9]+/ ')"
+	[ "$versions" = "$((v - ${#empty[@]}))" ] || fatal "Compacted $base has $versions versions instead of $((v - ${#empty[@]}))"
+
+	echo "$n" >"$tmp/.ready" || fatal
+	swap_compacted "$tmp" "$base"
+	echo "Compacted $base: removed $dropped empty parts"
+}
+
+compact_dump()
+{
+	local zarch res=0
+	assert_archives
+	[ -e "$DUMPDIR/.encrypted" ] && fatal "Encrypted archives can't be compacted (zpaq encryption depends on the part offsets)"
+	while read -r zarch ; do
+		compact_archive "$DUMPDIR/$zarch" || res=1
+	done < <(find "$DUMPDIR" -type f -name "*.$STZ.zpaq" -printf "%P\n")
+	return $res
+}
+
 print_status()
 {
 	if [ -e "$DUMPDIR/.status" ] ; then
@@ -730,6 +833,8 @@ case $COMMAND in
 		# do not run two updates of the same backup at once
 		exec 9>"$DUMPDIR/.lock" || fatal "Can't create $DUMPDIR/.lock"
 		flock -n 9 || fatal "Another eterpack is updating $DUMPDIR"
+		[ -z "$(find "$DUMPDIR" -name ".eterpack.compact.*" -print -quit)" ] || \
+			fatal "There is an interrupted compact in $DUMPDIR, run eterpack compact again"
 
 		info "eterpack: packing to $DUMPDIR ..."
 
@@ -786,6 +891,13 @@ case $COMMAND in
 		[ -n "$2" ] && DESTDIR="$(realpath -m "$2")"
 		extract_dump
 	;;
+	compact)
+		DUMPDIR="$(realpath -e "$1")" || exit
+		[ -d "$DUMPDIR" ] || fatal "$DUMPDIR is not a dir"
+		exec 9>"$DUMPDIR/.lock" || fatal "Can't create $DUMPDIR/.lock"
+		flock -n 9 || fatal "Another eterpack is updating $DUMPDIR"
+		compact_dump
+	;;
 	test|check)
 		DUMPDIR="$(realpath -e "$1")" || exit
 		[ -d "$DUMPDIR" ] || fatal "$DUMPDIR is not a dir"
@@ -820,6 +932,9 @@ case $COMMAND in
 		echo "Test backup integrity:"
 		echo "	$ eterpack test /path/backup"
 
+		echo
+		echo "Remove empty parts left by updates without changes (not for encrypted backups):"
+		echo "	$ eterpack compact /path/backup"
 
 		echo
 		echo "Print backup status:"
