@@ -98,14 +98,17 @@ clean_path()
 }
 
 # return 0 if reldir (with last name bdir) is excluded by any --exclude
+# (or it is inside an excluded path)
 is_excluded_dir()
 {
 	local reldir="$1"
 	local bdir="$2"
-	local ex
+	local ex exdir
 	for ex in "${EXCLUDES[@]}" ; do
 		if rhas "$ex" "^/" ; then
-			[ "$reldir" = "$(clean_path "$ex")" ] && return 0
+			exdir="$(clean_path "$ex")"
+			[ "$reldir" = "$exdir" ] && return 0
+			[ "${reldir#"$exdir"/}" != "$reldir" ] && return 0
 		else
 			[ "$bdir" = "$ex" ] && return 0
 		fi
