@@ -81,8 +81,6 @@ done_status()
 	date --iso-8601=minutes -u >"$DUMPDIR/.last-updated"
 }
 
-
-# CHECKME: the same like estrlist has ?
 # Note: used egrep! write '[0-9]+(first|two)', not '[0-9]\+...'
 rhas()
 {
