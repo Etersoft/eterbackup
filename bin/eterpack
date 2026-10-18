@@ -151,6 +151,31 @@ list_empty_dirs()
 	done
 }
 
+# run zpaq add with -index ZARCH (the first arg), but do not keep a new part without changes:
+# zpaq creates a part with an empty version (104 bytes) on every run
+zpaq_add()
+{
+	local zarch="$1" prev='' output res part
+	shift
+	if [ -s "$zarch" ] ; then
+		prev="$zarch.prev"
+		cp -p "$zarch" "$prev" || fatal "Can't copy $zarch"
+	fi
+	output="$(mktemp)" || fatal
+	zpaq add "$@" -index "$zarch" 2>&1 | tee "$output"
+	res="${PIPESTATUS[0]}"
+	if [ "$res" = "0" ] && [ -n "$prev" ] && grep -q -x "0 +added, 0 -removed\." "$output" ; then
+		part="$(sed -n -e 's|^Creating \(.*\.zpaq\) at offset .*|\1|p' "$output")"
+		if [ -f "$part" ] ; then
+			# restore the index first: if we fail before removing the part,
+			# the next run gets "archive exists" for it and moves it to .broken
+			mv -f "$prev" "$zarch" && rm -f "$part" && echo "No changes, $part is removed"
+		fi
+	fi
+	rm -f "$prev" "$output"
+	return "$res"
+}
+
 attrstore()
 {
 	$PROGDIR/eterattrstore "$@"
@@ -168,8 +193,29 @@ list_followed_links()
 	return 0
 }
 
+# set the stored date to the metafiles in dir $1 which are the same as in the root archive,
+# so zpaq does not add a new version for them (internal names have prefix $2)
+keep_stored_metadates()
+{
+	local metadir="$1" prefix="$2" stored name f
+	[ -s "$DUMPDIR/$BASEPACK.$STZ.zpaq" ] || return 0
+	stored="$(mktemp -d "$DUMPDIR/.eterpack.tmp.XXXXXX")" || return 0
+	local INNAMES=() OUTNAMES=()
+	for name in "${METANAMES[@]}" ; do
+		INNAMES+=("$prefix$name")
+		OUTNAMES+=("$stored/$name")
+	done
+	# zpaq restores the stored dates
+	zpaq extract "$DUMPDIR/$BASEPACK.$STN.zpaq" "${INNAMES[@]}" -to "${OUTNAMES[@]}" "${PASSWORDARG[@]}" >/dev/null 2>&1
+	while read -r f ; do
+		[ -f "$stored/$f" ] && cmp -s "$metadir/$f" "$stored/$f" && touch -r "$stored/$f" "$metadir/$f"
+	done < <(cd "$metadir" && find . -type f -printf "%P\n")
+	rm -rf "$stored"
+	return 0
+}
+
 # save attrs and special files of the source to a new dir in DUMPDIR, print the dir
-# (the source tree is not changed)
+# (the source tree is not changed), $1 is the prefix of internal names
 save_metadir()
 {
 	local metadir
@@ -178,6 +224,7 @@ save_metadir()
 	(cd "$BACKUPDIR" && attrstore save --metadir "$metadir" --follow "$metadir.follow") || \
 		{ rm -rf "$metadir" "$metadir.follow" ; fatal "Can't save attributes and special files" ; }
 	rm -f "$metadir.follow"
+	keep_stored_metadates "$metadir" "$1"
 	echo "$metadir"
 }
 
@@ -201,7 +248,7 @@ update_archive()
 	if [ -z "$NOATTRIBUTE" ] ; then
 		echo
 		echo "Save attrs and special files..."
-		metadir="$(save_metadir)" || exit
+		metadir="$(save_metadir ./)" || exit
 		# missed metafiles are marked as removed by zpaq itself (they are under ./$bdir)
 		for name in "${METANAMES[@]}" ; do
 			[ -e "$metadir/$name" ] || continue
@@ -221,7 +268,7 @@ update_archive()
 	echo "Packing single $BACKUPDIR ..."
 	mkdir -p "$DUMPDIR/"
 	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" -to "${TONAMES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" -to "${TONAMES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || \
+	zpaq_add "$DUMPDIR/$BASEPACK.$STZ.zpaq" "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" -to "${TONAMES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" || \
 		{ [ -n "$metadir" ] && rm -rf "$metadir" ; exit 1 ; }
 	cd - >/dev/null || exit
 
@@ -360,7 +407,7 @@ while read -r reldir ; do
 	local tmpoutput="$(mktemp)"
 	# Note: ./ protects names started with '-'
 	echo zpaq add "$archname" "./$babsdir" -to "$intname" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$zarchname"
-	(zpaq add "$archname" "./$babsdir" -to "$intname" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$zarchname" 2>&1 && touch "$tmpoutput.ok") | tee "$tmpoutput"
+	(zpaq_add "$zarchname" "$archname" "./$babsdir" -to "$intname" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" 2>&1 && touch "$tmpoutput.ok") | tee "$tmpoutput"
 	local res=0 existfile='' skipfile=''
 	if [ ! -r "$tmpoutput.ok" ] ; then
 		res=1
@@ -427,7 +474,7 @@ if [ -n "${FILES[*]}" ] ; then
 	echo
 	echo "Packing extra files ..."
 	echo zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" -to "${TONAMES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq"
-	zpaq add "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" -to "${TONAMES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" -index "$DUMPDIR/$BASEPACK.$STZ.zpaq" || \
+	zpaq_add "$DUMPDIR/$BASEPACK.$STZ.zpaq" "$DUMPDIR/$BASEPACK.$STN.zpaq" "${FILES[@]}" -to "${TONAMES[@]}" "${CHECKSUM[@]}" "${EXCLUDEARG[@]}" "${PASSWORDARG[@]}" || \
 		{ [ -n "$metadir" ] && rm -rf "$metadir" ; cd - >/dev/null || exit ; return 1 ; }
 
 	[ -n "$metadir" ] && rm -rf "$metadir"
@@ -772,6 +819,7 @@ case $COMMAND in
 		echo
 		echo "Test backup integrity:"
 		echo "	$ eterpack test /path/backup"
+
 
 		echo
 		echo "Print backup status:"
