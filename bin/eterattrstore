@@ -43,6 +43,8 @@ FOLLOWDIR=.eterpack.follow
 METADIR=''
 # file with the list of followed symlinks to dirs (relative paths, one per line)
 FOLLOWLIST=''
+# file with the list of excluded paths (relative paths, one per line)
+EXCLUDELIST=''
 
 set_metadir()
 {
@@ -68,6 +70,19 @@ list_special_files()
 	done
 }
 
+# skip the excluded paths and everything below them
+skip_excluded()
+{
+	if [ -n "$EXCLUDELIST" ] && [ -s "$EXCLUDELIST" ] ; then
+		awk -v list="$EXCLUDELIST" '
+			BEGIN { while ((getline l < list) > 0) if (l != "") ex[l] = 1 }
+			{ for (l in ex) if ($0 == l || index($0, l "/") == 1) next ; print }'
+	else
+		cat
+	fi
+	return 0
+}
+
 # the followed links are packed as dirs, so do not save them as symlinks
 skip_followed()
 {
@@ -85,7 +100,7 @@ save_attrs()
 
 	# save special files
 	# Note: sv4cpio has no ustar limits (100 chars for a link target, about 255 chars for a path)
-	list_special_files | skip_followed | pax -wd -x sv4cpio -f "$PAXFILE" || res=1
+	list_special_files | skip_followed | skip_excluded | pax -wd -x sv4cpio -f "$PAXFILE" || res=1
 	[ -s "$PAXFILE" ] || rm -f "$PAXFILE" 2>/dev/null
 
 	# save attrs in .metafile
@@ -153,17 +168,26 @@ restore_attrs()
 COMMAND=$1
 shift
 
-if [ "$1" = "--metadir" ] ; then
-	[ -n "$2" ] || fatal "--metadir requires a dir"
-	set_metadir "$2"
+while [ -n "$1" ] ; do
+	case "$1" in
+		--metadir)
+			[ -n "$2" ] || fatal "--metadir requires a dir"
+			set_metadir "$2"
+			;;
+		--follow)
+			[ -n "$2" ] || fatal "--follow requires a file"
+			FOLLOWLIST="$2"
+			;;
+		--exclude)
+			[ -n "$2" ] || fatal "--exclude requires a file"
+			EXCLUDELIST="$2"
+			;;
+		*)
+			fatal "Unknown option $1"
+			;;
+	esac
 	shift 2
-fi
-
-if [ "$1" = "--follow" ] ; then
-	[ -n "$2" ] || fatal "--follow requires a file"
-	FOLLOWLIST="$2"
-	shift 2
-fi
+done
 
 # epm assure pax
 # epm assure metastore
@@ -199,6 +223,7 @@ case $COMMAND in
 		echo "Options:"
 		echo "	--metadir DIR  keep metainfo in DIR (absolute path) instead of the current dir"
 		echo "	--follow FILE  also save the dirs behind the symlinks listed in FILE (save only)"
+	echo "	--exclude FILE skip special files under the paths listed in FILE (save and compare)"
 		;;
 	*)
 		echo "$DESCR" >&2

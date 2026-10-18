@@ -230,6 +230,25 @@ keep_stored_metadates()
 	return 0
 }
 
+# paths (relative to the source root) excluded by --exclude
+list_excluded_paths()
+{
+	local ex reldir
+	for ex in "${EXCLUDES[@]}" ; do
+		# with --depth 0 names are paths from the root too
+		if rhas "$ex" "^/" || [ "$MAXDEPTH" = "0" ] ; then
+			clean_path "$ex"
+		fi
+	done
+	[ "$MAXDEPTH" = "0" ] && return
+	# names are matched at the packing depth
+	find "${FOLLOWLINKS[@]}" "$BACKUPDIR" -mindepth "$MINDEPTH" -maxdepth "$MAXDEPTH" -type d -printf "%P\n" | \
+	while read -r reldir ; do
+		is_excluded_dir "$reldir" "$(basename -- "$reldir")" && echo "$reldir"
+	done
+	return 0
+}
+
 # save attrs and special files of the source to a new dir in DUMPDIR, print the dir
 # (the source tree is not changed), $1 is the prefix of internal names
 save_metadir()
@@ -237,9 +256,10 @@ save_metadir()
 	local metadir
 	metadir="$(mktemp -d "$DUMPDIR/.eterpack.tmp.XXXXXX")" || fatal "Can't create a temp dir in $DUMPDIR"
 	list_followed_links >"$metadir.follow"
-	(cd "$BACKUPDIR" && attrstore save --metadir "$metadir" --follow "$metadir.follow") || \
-		{ rm -rf "$metadir" "$metadir.follow" ; fatal "Can't save attributes and special files" ; }
-	rm -f "$metadir.follow"
+	list_excluded_paths >"$metadir.exclude"
+	(cd "$BACKUPDIR" && attrstore save --metadir "$metadir" --follow "$metadir.follow" --exclude "$metadir.exclude") || \
+		{ rm -rf "$metadir" "$metadir.follow" "$metadir.exclude" ; fatal "Can't save attributes and special files" ; }
+	rm -f "$metadir.follow" "$metadir.exclude"
 	keep_stored_metadates "$metadir" "$1"
 	echo "$metadir"
 }
