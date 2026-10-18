@@ -81,6 +81,37 @@ get_status()
 	cat "$ROTATEDIR/status" || fatal "Can't read status"
 }
 
+# do not run two etertimemachine on the same dir at once
+# (so the status left in the dir means the previous run was interrupted)
+lock_rotatedir()
+{
+	mkdir -p "$ROTATEDIR" || fatal "Can't create $ROTATEDIR"
+	exec 9>"$ROTATEDIR/.lock" || fatal "Can't create $ROTATEDIR/.lock"
+	flock -n 9 || fatal "Another etertimemachine is working with $ROTATEDIR"
+}
+
+# finish or roll back the rotating interrupted at status "rotate"
+recover_rotate()
+{
+	local tmp mark
+	echo "Recover interrupted rotating in $ROTATEDIR ..."
+	for tmp in "$ROTATEDIR"/*.tmp ; do
+		[ -d "$tmp" ] || continue
+		mark="${tmp%.tmp}"
+		if [ -d "$ROTATEDIR/$LAST" ] && [ ! -e "$mark" ] ; then
+			# copying with hard links was interrupted
+			rm -rf -- "$tmp" || fatal "Can't remove $tmp"
+		elif [ ! -e "$ROTATEDIR/$LAST" ] && [ -d "$mark" ] ; then
+			# $LAST is already moved to $mark
+			mv -- "$tmp" "$ROTATEDIR/$LAST" || fatal "Can't mv to $ROTATEDIR/$LAST"
+		else
+			fatal "Can't recover interrupted rotating with $tmp, fix it by hand and remove $ROTATEDIR/status"
+		fi
+	done
+	[ -d "$ROTATEDIR/$LAST" ] || fatal "Can't recover interrupted rotating: there is no $ROTATEDIR/$LAST"
+	set_status ""
+}
+
 next_number()
 {
 	assert_var ROTATEDIR
@@ -119,8 +150,9 @@ thin_log2rotate_dir()
 	# definitely we need $LAST is exists
 	[ -d "$ROTATEDIR/$LAST" ] || return
 
-	# TODO: what about continue rotate process?
-	[ -n "$(get_status)" ] && fatal "$0 already in $(get_status) process..."
+	# deleting only removes dirs, so the interrupted one is just run again
+	local STATUS="$(get_status)"
+	[ -n "$STATUS" ] && [ "$STATUS" != "delete" ] && fatal "Previous $STATUS process was interrupted, run update or rotate to finish it"
 
 	cd "$ROTATEDIR" || fatal
 	set_status "delete"
@@ -152,10 +184,21 @@ thin_log2rotate_dir()
 rotate_dir()
 {
 	# rotate only we have $LAST already
-	[ -d "$ROTATEDIR/$LAST" ] || return
+	[ -d "$ROTATEDIR/$LAST" ] || [ "$(get_status)" = "rotate" ] || return
 
-	# TODO: what about continue rotate process?
-	[ -n "$(get_status)" ] && fatal "$0 already in $(get_status) process..."
+	case "$(get_status)" in
+		"")
+			;;
+		rotate)
+			recover_rotate
+			;;
+		sync)
+			fatal "Previous sync process was interrupted, run update to finish it"
+			;;
+		*)
+			fatal "Previous $(get_status) process was interrupted, run $(get_status) to finish it"
+			;;
+	esac
 
 	MARK=$(get_mark $METHOD)
 	[ -n "$MARK" ] || fatal "Can't get dir name for rotating"
@@ -187,10 +230,11 @@ rotate_dir()
 update_dir()
 {
 	local STATUS="$(get_status)"
-	[ -n "$STATUS" ] && [ "$STATUS" != "sync" ] && fatal "$0 already in $STATUS process..."
+	[ "$STATUS" = "delete" ] && fatal "Previous delete process was interrupted, run delete to finish it"
 
+	# the interrupted sync is just continued
 	# if rotate_dir will fail, we will exit via fatal
-	[ -z "$STATUS" ] && rotate_dir
+	[ "$STATUS" != "sync" ] && rotate_dir
 
 	local RSYNC_OPTS=
 	local CP_OPTS=
@@ -264,11 +308,14 @@ case $COMMAND in
 
 		# to
 		ROTATEDIR=$(realpath -m "$2")
+		lock_rotatedir
 		update_dir
 	;;
 	rotate)
 		[ -d "$1" ] || fatal "Run with exists dir for rotate"
 		ROTATEDIR=$(realpath -e "$1") || exit
+		lock_rotatedir
+		[ "$(get_status)" = "rotate" ] && recover_rotate
 
 		# for first time just create target
 		if [ ! -d "$ROTATEDIR/$LAST" ] ; then
@@ -285,6 +332,7 @@ case $COMMAND in
 		[ "$METHOD" = "date" ] || fatal "Allowed method for thin is only 'date'"
 		# TODO: add lastN alg
 		[ "$THINNER" = "log2" ] || fatal "Allowed thin algorithm for delete is only 'log2'"
+		lock_rotatedir
 
 		thin_log2rotate_dir
 	;;
