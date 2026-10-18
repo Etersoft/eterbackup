@@ -92,10 +92,53 @@ setup()
 	run ! "$ETERTM" rotate tm
 }
 
-@test "interrupted status blocks rotate" {
+@test "interrupted copying for rotate is rolled back" {
 	"$ETERTM" update sample tm
+	local today
+	today="$(date --rfc-3339=date)"
+	# cp -al was interrupted
+	mkdir "tm/$today.tmp"
 	echo rotate >tm/status
-	run ! "$ETERTM" update sample tm
+	echo second >sample/dir/file
+	"$ETERTM" update sample tm
+	[ ! -e "tm/$today.tmp" ]
+	[ ! -e tm/status ]
+	[ "$(cat "tm/$today/dir/file")" = first ]
+	diff -r sample tm/last
+}
+
+@test "interrupted rotate is finished" {
+	"$ETERTM" update sample tm
+	local today
+	today="$(date --rfc-3339=date)"
+	# last is moved to the dated dir, but the copy is not moved to last yet
+	cp -al tm/last "tm/$today.tmp"
+	mv tm/last "tm/$today"
+	echo rotate >tm/status
+	"$ETERTM" rotate --force tm
+	[ -d tm/last ]
+	[ ! -e "tm/$today.tmp" ]
+	[ ! -e tm/status ]
+	diff -r sample tm/last
+	diff -r sample "tm/$today"
+}
+
+@test "interrupted sync is continued by update and blocks rotate" {
+	"$ETERTM" update sample tm
+	echo sync >tm/status
+	run ! "$ETERTM" rotate tm
+	[[ "$output" == *"run update"* ]]
+	echo second >sample/dir/file
+	"$ETERTM" update sample tm
+	# no rotating, the sync is just finished
+	[ "$(ls tm)" = last ]
+	diff -r sample tm/last
+}
+
+@test "update fails when another etertimemachine works with the dir" {
+	"$ETERTM" update sample tm
+	run ! flock tm/.lock "$ETERTM" update sample tm
+	[[ "$output" == *"Another etertimemachine"* ]]
 }
 
 @test "delete thins dated dirs with log2" {
@@ -112,6 +155,24 @@ setup()
 	[ "$left" -gt 1 ]
 	[ -d "tm/$(date --rfc-3339=date)" ]
 	[ -d tm/last ]
+}
+
+@test "delete with --thinner lastN keeps N last dated dirs" {
+	mkdir -p tm/last
+	local i
+	for i in $(seq 0 9) ; do
+		mkdir "tm/$(date --rfc-3339=date -d "$i days ago")"
+	done
+	# interrupted delete is continued
+	echo delete >tm/status
+	"$ETERTM" delete --method date --thinner last3 tm
+	[ "$(ls -d tm/????-??-?? | wc -l)" = 3 ]
+	[ -d "tm/$(date --rfc-3339=date)" ]
+	[ -d "tm/$(date --rfc-3339=date -d "2 days ago")" ]
+	[ -d tm/last ]
+	[ ! -e tm/status ]
+	run ! "$ETERTM" delete --method date --thinner last0 tm
+	run ! "$ETERTM" delete --method date --thinner lastx tm
 }
 
 @test "unknown --method fails" {
