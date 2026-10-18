@@ -181,3 +181,75 @@ create_special_tree()
 	run ! "$ETERATTRSTORE" foo
 	run -0 "$ETERATTRSTORE" --help
 }
+
+@test "eterpack compare detects changed owner group, mode and special files" {
+	create_special_tree
+	"$ETERPACK" update sample packed
+	"$ETERPACK" compare packed sample
+	"$ETERPACK" extract packed unpacked
+	"$ETERPACK" compare packed unpacked
+
+	cp -a sample sample-mode
+	chmod 0640 sample-mode/rootfile
+	run ! "$ETERPACK" compare packed sample-mode
+	[[ "$output" == *"./rootfile:"*"mode"* ]]
+
+	cp -a sample sample-group
+	chgrp "$(id -gn)" sample-group/dir/file
+	run ! "$ETERPACK" compare packed sample-group
+	[[ "$output" == *"./dir/file:"*"group"* ]]
+
+	cp -a sample sample-link
+	ln -sfn other sample-link/dir/link
+	run ! "$ETERPACK" compare packed sample-link
+	[[ "$output" == *"Special files differ"* ]]
+	[[ "$output" == *"+ "*"dir/link => other"* ]]
+
+	cp -a sample sample-fifo
+	rm sample-fifo/dir/fifo
+	run ! "$ETERPACK" compare packed sample-fifo
+	[[ "$output" == *"- "*"dir/fifo"* ]]
+
+	# the attributes are not compared with --noattribute (zpaq compares the mode itself)
+	"$ETERPACK" compare --noattribute packed sample-group
+}
+
+@test "eterpack compare with --depth 0 and --followlinks checks the attributes" {
+	create_special_tree
+	"$ETERPACK" update --depth 0 sample packed0
+	"$ETERPACK" compare packed0 sample
+	chmod 0640 sample/rootfile
+	run ! "$ETERPACK" compare packed0 sample
+
+	mkdir -p real/linked
+	echo data >real/linked/file
+	chgrp "$TEST_GROUP" real/linked/file
+	ln -s file real/linked/link
+	mkdir src
+	ln -s ../real/linked src/linked
+	"$ETERPACK" update --followlinks src packedl
+	"$ETERPACK" compare packedl src
+	"$ETERPACK" extract packedl unpackedl
+	"$ETERPACK" compare packedl unpackedl
+	chgrp "$(id -gn)" real/linked/file
+	run ! "$ETERPACK" compare packedl src
+	[[ "$output" == *"./linked/file:"*"group"* ]]
+}
+
+@test "special files in excluded dirs are not saved" {
+	create_special_tree
+	mkdir -p sample/skipped sample/dir/skipped
+	ln -s ../dir/file sample/skipped/link
+	mkfifo sample/dir/skipped/fifo
+	"$ETERPACK" update --exclude /skipped --exclude /dir/skipped sample packed
+	"$ETERPACK" extract packed unpacked
+	[ ! -e unpacked/skipped ]
+	[ ! -e unpacked/dir/skipped ]
+	"$ETERPACK" compare --exclude /skipped --exclude /dir/skipped packed sample
+	"$ETERPACK" compare packed unpacked
+	# by name at the packing depth
+	"$ETERPACK" update --exclude skipped sample packedn
+	"$ETERPACK" extract packedn unpackedn
+	[ ! -e unpackedn/skipped ]
+	[ -p unpackedn/dir/skipped/fifo ]
+}
